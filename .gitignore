@@ -1,0 +1,12 @@
+.DS_Store
+Utils/.DS_Store
+Docs/.DS_Store
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+rendered_fractals/
+current_fractal_images.json
+removed_fractal_images.json
+current_fractal_seeds.json
+removed_fractal_seeds.json
+*.log
