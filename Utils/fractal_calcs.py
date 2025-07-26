@@ -56,32 +56,32 @@ def julia_numba(
 
     # Iterate over each pixel using Numba to optimize loop.
     # Parallel range for outer loop and range for inner loop.
-    for row in prange(height):
-        for col in range(width):
-            if active_mask[row, col]:
-                zr = Z_real[row, col]
-                zi = Z_imag[row, col]
-                magnitude_sq = zr * zr + zi * zi
+        for row in prange(height):
+            for col in range(width):
+                if active_mask[row, col]:
+                    zr = Z_real[row, col]
+                    zi = Z_imag[row, col]
+                    magnitude_sq = zr * zr + zi * zi
 
-                if magnitude_sq >= bailout_sq:
+                    if magnitude_sq >= bailout_sq:
     # This point has escaped, log iteration and set mask to False.
-                    iterations_map[row, col] = i + 1
-                    magnitudes_map[row, col] = np.sqrt(magnitude_sq)
-                    active_mask[row, col] = False
-                else:
+                        iterations_map[row, col] = i + 1
+                        magnitudes_map[row, col] = np.sqrt(magnitude_sq)
+                        active_mask[row, col] = False
+                    else:
     # Perform iteration: Z_new = Z^power + c using polar coordinates.
     # For detailed explanation please see docs/julia_set_math.md 
-                    r_z = np.sqrt(magnitude_sq)
-                    theta_z = np.arctan2(zi, zr)
+                        r_z = np.sqrt(magnitude_sq)
+                        theta_z = np.arctan2(zi, zr)
 
-                    new_r = r_z**power
-                    new_theta = power * theta_z
+                        new_r = r_z**power
+                        new_theta = power * theta_z
 
-                    next_zr = new_r * np.cos(new_theta) + c_real
-                    next_zi = new_r * np.sin(new_theta) + c_imag
-                        
-                    Z_real[row, col] = next_zr
-                    Z_imag[row, col] = next_zi        
+                        next_zr = new_r * np.cos(new_theta) + c_real
+                        next_zi = new_r * np.sin(new_theta) + c_imag
+                            
+                        Z_real[row, col] = next_zr
+                        Z_imag[row, col] = next_zi        
 
     angle_map = np.arctan2(Z_imag, Z_real)
     return iterations_map, magnitudes_map, angle_map
