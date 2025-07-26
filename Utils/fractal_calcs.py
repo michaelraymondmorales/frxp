@@ -25,7 +25,7 @@ def julia_numba(
         bailout (float): Bailout radius.
 
     Returns:
-        tuple: (iterations_map, final_magnitudes_map)
+        tuple: (iterations_map, final_magnitudes_map, angle_map)
             iterations_map (np.ndarray): Array of iteration counts.
             magnitudes_map (np.ndarray): Array of final magnitudes before bailout.
             angle_map (np.ndarray): Array of angles (phase) of Z at the final state.

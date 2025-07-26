@@ -53,7 +53,7 @@ def get_next_seed_id(current_seeds, removed_seeds):
         current_seeds (dict)
         removed_seeds (dict)
     Returns: 
-        str: next available unique seed ID formatted 'seed_NNNNN'.
+        str: Next available unique seed ID formatted 'seed_NNNNN'.
     """
     #Assumes IDs are in format 'seed_NNNNN'
     max_num = 0
