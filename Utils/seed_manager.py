@@ -6,7 +6,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 CURRENT_SEEDS_FILE = PROJECT_ROOT / 'current_fractal_seeds.json'
 REMOVED_SEEDS_FILE = PROJECT_ROOT / 'removed_fractal_seeds.json'
 
-def _load_json(filepath):
+def _load_json(filepath: Path):
     """
     Internal helper function to load JSON file.
     """
@@ -19,14 +19,14 @@ def _load_json(filepath):
             return {}
     return {}
 
-def _save_json(filepath, data):
+def _save_json(filepath: Path, data: dict):
     """
     Internal helper function to save JSON file.
     """
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=4)
 
-def load_all_seeds():
+def load_all_seeds() -> tuple[dict, dict]:
     """
     Loads all current and removed fractal seeds from JSON files.
     Initializes with empty dictionary if files don't exist.
@@ -38,14 +38,14 @@ def load_all_seeds():
     removed_seeds = _load_json(REMOVED_SEEDS_FILE)
     return current_seeds, removed_seeds
 
-def save_all_seeds(current_seeds, removed_seeds):
+def save_all_seeds(current_seeds: dict, removed_seeds: dict):
     """
     Saves all current and removed fractal seeds to JSON file.
     """
     _save_json(CURRENT_SEEDS_FILE, current_seeds)
     _save_json(REMOVED_SEEDS_FILE, removed_seeds)
 
-def get_next_seed_id(current_seeds, removed_seeds):
+def get_next_seed_id(current_seeds: dict, removed_seeds: dict):
     """
     Generates new sequential seed ID based on existing seeds.
     
@@ -75,21 +75,22 @@ def get_next_seed_id(current_seeds, removed_seeds):
 
     return f'seed_{max_num + 1:05d}'
 
-def add_seed(params, current_seeds, removed_seeds):
+def add_seed(params: dict, 
+             current_seeds: dict, 
+             removed_seeds: dict
+             ) -> str:
     """
     Adds a new fractal seed to current seeds diciontary.
     
     Args:
-        params (dict)
-        current_seeds (dict)
-        removed_seeds (dict)
+        params (dict): Dictionary containing image metadata (type, subtype, power, x_span, y_span, x_center, y_center, c_value, bailout, iterations).
+        current_seeds (dict): The dictionary of current seed records.
+        removed_seeds (dict): The dictionary of removed seed records.
 
     Returns:
         str: The ID of the newly added seed.
     """
     new_seed_id = get_next_seed_id(current_seeds, removed_seeds)
-    
-    # Potentially add logic to filter subtype.
 
     current_seeds[new_seed_id] = {
         'type': params['type'],
@@ -106,7 +107,10 @@ def add_seed(params, current_seeds, removed_seeds):
     save_all_seeds(current_seeds, removed_seeds)
     return new_seed_id
 
-def get_seed_by_id(seed_id, current_seeds, removed_seeds):
+def get_seed_by_id(seed_id: str,
+                   current_seeds: dict, 
+                   removed_seeds: dict
+                   ) -> tuple[dict | None, str | None]:
     """
     Retrieves seed by its ID from either current or removed seeds.
 
@@ -124,7 +128,10 @@ def get_seed_by_id(seed_id, current_seeds, removed_seeds):
         return removed_seeds[seed_id], 'removed'
     return None, None
 
-def remove_seed(seed_id, current_seeds, removed_seeds):
+def remove_seed(seed_id: str, 
+                current_seeds: dict, 
+                removed_seeds: dict
+                ) -> bool:
     """
     Removes seed by its ID from current to removed seeds.
 
@@ -143,7 +150,10 @@ def remove_seed(seed_id, current_seeds, removed_seeds):
         return True
     return False
 
-def restore_seed(seed_id, current_seeds, removed_seeds):
+def restore_seed(seed_id: str,
+                 current_seeds: dict, 
+                 removed_seeds: dict
+                 ) -> bool:
     """
     Restores seed by its ID from current to removed seeds.
 
@@ -162,7 +172,43 @@ def restore_seed(seed_id, current_seeds, removed_seeds):
         return True
     return False
 
-def list_seeds(current_seeds, removed_seeds, status='active'):
+def update_seed(seed_id: str, 
+                updates: dict, 
+                current_seeds: dict, 
+                removed_seeds: dict
+                ) -> bool:
+    """
+    Updates specific fields for an existing fractal seed in the current seeds dictionary.
+
+    Args:
+        seed_id (str): The ID of the seed to update.
+        updates (dict): A dictionary of key-value pairs representing the fields to update.
+                        Only fields present in 'updates' will be modified.
+        current_seeds (dict): The dictionary of current seed records.
+        removed_seeds (dict): The dictionary of removed seed records.
+
+    Returns:
+        bool: True if the seed was found and updated, False otherwise.
+    """
+    if seed_id not in current_seeds:
+        # Optionally check removed_seeds here if allowing updating removed seeds.
+        # For now only allow updating active seeds.
+        return False
+
+    seed_data = current_seeds[seed_id]
+    for key, value in updates.items():
+        if key in seed_data: # Only update existing keys to prevent adding arbitrary new fields
+            seed_data[key] = value
+        else:
+            print(f"Warning: Attempted to update non-existent key '{key}' for seed '{seed_id}'. Skipping.")
+    
+    save_all_seeds(current_seeds, removed_seeds)
+    return True
+
+def list_seeds(current_seeds: dict,
+               removed_seeds: dict,
+               status: str = 'active'
+               ) -> dict:
     """
     List seeds based on their status.
 
