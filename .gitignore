@@ -1,6 +1,5 @@
+.getkeep
 .DS_Store
-Utils/.DS_Store
-Docs/.DS_Store
 __pycache__/
 *.pyc
 .ipynb_checkpoints/

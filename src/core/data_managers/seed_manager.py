@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-CURRENT_SEEDS_FILE = PROJECT_ROOT / 'current_fractal_seeds.json'
-REMOVED_SEEDS_FILE = PROJECT_ROOT / 'removed_fractal_seeds.json'
+PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent
+CURRENT_SEEDS_FILE = PROJECT_ROOT / 'data' / 'current_fractal_seeds.json'
+REMOVED_SEEDS_FILE = PROJECT_ROOT / 'data' / 'removed_fractal_seeds.json'
 
 def _load_json(filepath: Path):
     """
@@ -83,7 +83,7 @@ def add_seed(params: dict,
     Adds a new fractal seed to current seeds diciontary.
     
     Args:
-        params (dict): Dictionary containing image metadata (type, subtype, power, x_span, y_span, x_center, y_center, c_value, bailout, iterations).
+        params (dict): Dictionary containing image metadata (type, subtype, power, x_span, y_span, x_center, y_center, c_real c_imag, bailout, iterations).
         current_seeds (dict): The dictionary of current seed records.
         removed_seeds (dict): The dictionary of removed seed records.
 
@@ -100,7 +100,8 @@ def add_seed(params: dict,
         'y_span': params['y_span'],
         'x_center': params['x_center'],
         'y_center': params['y_center'],
-        'c_value': params['c_value'],
+        'c_real': params['c_real'],
+        'c_imag': params['c_imag'],
         'bailout': params['bailout'],
         'iterations': params['iterations']
     }
@@ -120,7 +121,7 @@ def get_seed_by_id(seed_id: str,
         removed_seeds (dict)
 
     Returns:
-        tuple: (seed_data, status) where status is active, removed or None.
+        tuple: (seed_data, status) where status is current, removed or None.
     """
     if seed_id in current_seeds:
         return current_seeds[seed_id], 'current'
@@ -192,7 +193,7 @@ def update_seed(seed_id: str,
     """
     if seed_id not in current_seeds:
         # Optionally check removed_seeds here if allowing updating removed seeds.
-        # For now only allow updating active seeds.
+        # For now only allow updating current seeds.
         return False
 
     seed_data = current_seeds[seed_id]
@@ -207,7 +208,7 @@ def update_seed(seed_id: str,
 
 def list_seeds(current_seeds: dict,
                removed_seeds: dict,
-               status: str = 'active'
+               status: str = 'current'
                ) -> dict:
     """
     List seeds based on their status.
@@ -215,13 +216,13 @@ def list_seeds(current_seeds: dict,
     Args:
         current_seeds (dict)
         removed_seeds (dict)
-        status (str): 'active', 'removed', or 'all'. Defaults to 'active'.
+        status (str): 'current', 'removed', or 'all'. Defaults to 'current'.
 
     Returns:
         dict: A dictionary of seeds based on requested status.
     """
 
-    if status == 'active':
+    if status == 'current':
         return current_seeds
     elif status == 'removed':
         return removed_seeds
@@ -229,5 +230,5 @@ def list_seeds(current_seeds: dict,
         combined = {**current_seeds, **removed_seeds}
         return dict(sorted(combined.items()))
     else:
-        print("Invalid status. Please use 'active', 'removed', or 'all'.")
+        print("Invalid status. Please use 'current', 'removed', or 'all'.")
         return {}

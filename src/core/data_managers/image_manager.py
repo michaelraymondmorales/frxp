@@ -3,9 +3,9 @@ import shutil
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-CURRENT_IMAGES_FILE = PROJECT_ROOT / 'current_fractal_images.json'
-REMOVED_IMAGES_FILE = PROJECT_ROOT / 'removed_fractal_images.json'
+PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent
+CURRENT_IMAGES_FILE = PROJECT_ROOT / 'data' / 'current_fractal_images.json'
+REMOVED_IMAGES_FILE = PROJECT_ROOT / 'data' / 'removed_fractal_images.json'
 RENDERED_FRACTALS_DIR = PROJECT_ROOT / 'rendered_fractals'
 CURRENT_IMAGES_DIR = RENDERED_FRACTALS_DIR / 'current'
 REMOVED_IMAGES_DIR = RENDERED_FRACTALS_DIR / 'removed'
@@ -109,7 +109,7 @@ def add_image(params: dict,
     new_image_id = get_next_image_id(current_images, removed_images)
     destination_filename = f'{new_image_id}{source_filepath.suffix}'
     destination_filepath = CURRENT_IMAGES_DIR / destination_filename
-    relative_filename = f'active/{destination_filename}'
+    relative_filename = f'current/{destination_filename}'
     file_moved_successfully = False
     try:
         shutil.move(source_filepath, destination_filepath)
@@ -144,7 +144,7 @@ def get_image_by_id(image_id: str,
         removed_images (dict)
 
     Returns:
-        tuple: (image_data, status) where status is active, removed or None.
+        tuple: (image_data, status) where status is current, removed or None.
     """
     if image_id in current_images:
         return current_images[image_id], 'current'
@@ -269,7 +269,8 @@ def list_images(
     seed_id_filter: str | None = None,
     rendering_type_filter: str | None = None,
     colormap_filter: str | None = None,
-    resolution_filter: int | None = None
+    resolution_filter: int | None = None,
+    status: str = 'all'
     ) -> tuple[dict, dict]:
     """
     Lists image records based on various filters.
@@ -298,12 +299,14 @@ def list_images(
         matches_resolution = (resolution_filter is None or img_data.get('resolution') == resolution_filter)
         return matches_aesthetic and matches_seed and matches_rendering_type and matches_colormap and matches_resolution
 
-    for img_id, img_data in current_images.items():
-        if _apply_filters(img_data):
-            filtered_current_images[img_id] = img_data
+    if status == 'current' or status == 'all':
+        for img_id, img_data in current_images.items():
+            if _apply_filters(img_data): 
+                filtered_current_images[img_id] = img_data
 
-    for img_id, img_data in removed_images.items():
-        if _apply_filters(img_data):
-            filtered_removed_images[img_id] = img_data
+    if status == 'removed' or status == 'all':
+        for img_id, img_data in removed_images.items():
+            if _apply_filters(img_data): 
+                filtered_removed_images[img_id] = img_data
             
     return dict(sorted(filtered_current_images.items())), dict(sorted(filtered_removed_images.items()))
