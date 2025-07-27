@@ -53,7 +53,7 @@ FractalExplorerVAE/
 │   │   ├── coord_converter.py            # Utilities for coordinate transformations  
 │   │   ├── coord_generator.py            # Utilities for generating coordinate grids  
 │   │   └── data_managers/           # Subpackage for data management  
-│   │       ├── __init__.py            # Makes 'data_managers' a subpackage
+│   │       ├── __init__.py            # Makes 'data_managers' a subpackage   
 │   │       ├── seed_manager.py           # Manages fractal seed metadata (JSON)  
 │   │       └── image_manager.py          # Manages image metadata (JSON) and physical files  
 │   │  
@@ -63,12 +63,12 @@ FractalExplorerVAE/
 │   │   └── renderer.py                    # CLI-specific image rendering logic  
 │   │  
 │   ├── vae/                          # Variational Autoencoder (VAE) components (Future)  
-│   │   ├── __init__.py                # Makes 'vae' a subpackage
+│   │   ├── __init__.py                # Makes 'vae' a subpackage  
 │   │   ├── model.py                       # VAE model architecture  
 │   │   └── train.py                       # VAE training script  
 │   │  
 │   └── web_app/                     # Web application interface (Future)  
-│       ├── __init__.py                # Makes 'web_app' a subpackage
+│       ├── __init__.py                # Makes 'web_app' a subpackage   
 │       ├── app.py                         
 │       └── ...  
 │  
@@ -84,8 +84,8 @@ FractalExplorerVAE/
 ├── rendered_fractals/               # Stores generated fractal images  
 │   ├── current/                      # Currently active images  
 │   │   └── .gitkeep                       # Placeholder to keep directory in Git  
-│   ├── removed/                      # Images moved to removed status  
-│   │   └── .gitkeep                       # Placeholder to keep directory in Git
+│   ├── removed/                      # Images moved to removed status    
+│   │   └── .gitkeep                       # Placeholder to keep directory in Git  
 │   └── staging/                      # Temporary directory for newly rendered images  
 │       └── .gitkeep                       # Placeholder to keep directory in Git  
 │  
