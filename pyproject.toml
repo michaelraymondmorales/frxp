@@ -1,0 +1,21 @@
+[project]
+name = "fractal-explorer-vae"
+version = "0.1.0"
+description = "A CLI for managing and exploring fractal images."
+readme = "README.md"
+requires-python = "=3.12.11" 
+license = { text = "MIT" }
+authors = [
+  { name = "Michael Raymond Morales", email = "michaelraymondmorales@gmail.com" },
+]
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "numba",
+    "PyYAML",
+    # "torch",       # Only if you are installing CPU-only torch via pip
+    # "torchvision", # Only if you are installing CPU-only torch via pip
+]
+
+[project.scripts]
+fex = "src.cli.main:main"
