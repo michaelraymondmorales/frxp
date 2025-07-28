@@ -5,7 +5,8 @@ def generate_coords(
     x_max: float, 
     y_min: float,
     y_max: float,
-    resolution: int):
+    resolution: int
+    ) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates 1D arrays of real (x) and imaginary (y) coordinates for a fractal grid.
 
