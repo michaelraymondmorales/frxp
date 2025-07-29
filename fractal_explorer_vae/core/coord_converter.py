@@ -13,13 +13,13 @@ def convert_to_center(x_min: float,
         y_max: Max coordinate of the view along the imaginary axis.
 
     Returns:
-        A tuple containing (x_center, y_center, x_span, y_span).
+        A tuple containing (x_center, x_span, y_center, y_span).
     """
     x_center = (x_min + x_max) / 2.0
-    y_center = (y_min + y_max) / 2.0
     x_span = x_max - x_min
+    y_center = (y_min + y_max) / 2.0
     y_span = y_max - y_min
-    return x_center, y_center, x_span, y_span
+    return x_center, x_span, y_center, y_span
 
 def convert_to_minmax(x_center: float, 
                       x_span: float, 
