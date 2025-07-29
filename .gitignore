@@ -4,9 +4,9 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 rendered_fractals/
-current_fractal_images.json
+active_fractal_images.json
 removed_fractal_images.json
-current_fractal_seeds.json
+active_fractal_seeds.json
 removed_fractal_seeds.json
 *.log
 *.egg-info/

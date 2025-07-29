@@ -1,3 +1,4 @@
+import os
 import json
 import shutil
 from pathlib import Path
@@ -310,3 +311,56 @@ def list_images(
                 filtered_removed_images[img_id] = img_data
             
     return dict(sorted(filtered_active_images.items())), dict(sorted(filtered_removed_images.items()))
+
+def purge_image(image_id: str,
+                active_images: dict,
+                removed_images: dict
+                ) -> tuple[dict | None, bool]:
+    """
+    Permanently deletes an image by its ID and its associated physical file.
+    Only allowed for images in removed images.
+
+    Args:
+        image_id (str): The ID of the image to permanently delete.
+        active_images (dict): The dictionary of active image records.
+        removed_images (dict): The dictionary of removed image records.
+
+    Returns:
+        tuple: (image_data, success_status)
+            image_data (dict | None): The data of the image that was deleted, or None if not found/purged.
+            success_status (bool): True if the image was successfully purged, False otherwise.
+    """
+    if image_id in active_images:
+        print(f"Warning: Image '{image_id}' is currently active. Please remove it first before attempting to purge.")
+        return None, False
+    elif image_id in removed_images:
+        image_data = removed_images.pop(image_id)
+        
+        # --- NEW: Attempt to delete the physical file ---
+        file_path_to_delete = RENDERED_FRACTALS_DIR / image_data['filename']
+        
+        file_deleted_successfully = False
+        if file_path_to_delete.exists():
+            try:
+                os.remove(file_path_to_delete) 
+                file_deleted_successfully = True
+                print(f"Physical image file '{file_path_to_delete.name}' deleted successfully.")
+            except OSError as e:
+                # Even if file deletion fails, still remove the metadata
+                # The record is purged from the system, but warn the user
+                print(f"Error: Could not delete physical image file '{file_path_to_delete}': {e}")
+        else:
+            print(f"Warning: Physical image file '{file_path_to_delete.name}' not found. Metadata will still be purged.")
+
+        # Save changes to JSON files regardless of file deletion success
+        save_all_images(active_images, removed_images)
+        
+        # Add a flag to the returned data about file deletion success
+        image_data['physical_file_deleted'] = file_deleted_successfully
+
+        print(f"Image metadata for '{image_id}' permanently purged from removed images.")
+        return image_data, True # Metadata was purged, so return True
+
+    else: # image_id not in active_images and not in removed_images
+        print(f"Error: Image '{image_id}' not found in removed images. No action taken.")
+        return None, False

@@ -232,3 +232,33 @@ def list_seeds(active_seeds: dict,
     else:
         print("Invalid status. Please use 'active', 'removed', or 'all'.")
         return {}
+    
+def purge_seed(seed_id: str,
+                active_seeds: dict,
+                removed_seeds: dict
+                ) -> tuple[dict | None, bool]:
+    """
+    Permanently deletes a seed by its ID. Only allowed for seeds in removed seeds.
+
+    Args:
+        seed_id (str): The ID of the seed to permanently delete.
+        active_seeds (dict): The dictionary of active seed records.
+        removed_seeds (dict): The dictionary of removed seed records.
+
+    Returns:
+        tuple: (seed_data, success_status)
+            seed_data (dict | None): The data of the seed that was deleted, or None if not found/purged.
+            success_status (bool): True if the seed was successfully purged, False otherwise.
+    """
+    if seed_id in active_seeds:
+        print(f"Warning: Seed '{seed_id}' is currently active. Please remove it before attempting to purge.")
+        return None, False
+    elif seed_id in removed_seeds:
+        seed_data = removed_seeds.pop(seed_id)
+        save_all_seeds(active_seeds, removed_seeds)
+        print(f"Seed '{seed_id}' permanently purged from removed seeds.")
+        return seed_data, True
+    else:
+        print(f"Error: Seed '{seed_id}' not found in removed seeds. No action taken.")
+        return None, False
+
