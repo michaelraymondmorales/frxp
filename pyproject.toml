@@ -3,8 +3,8 @@ name = "fractal-explorer-vae"
 version = "0.1.0"
 description = "A CLI for managing and exploring fractal images."
 readme = "README.md"
-requires-python = "=3.12.11" 
-license = { text = "MIT" }
+requires-python = "==3.12.11" 
+license = "MIT"
 authors = [
   { name = "Michael Raymond Morales", email = "michaelraymondmorales@gmail.com" },
 ]
@@ -18,4 +18,9 @@ dependencies = [
 ]
 
 [project.scripts]
-fex = "src.cli.main:main"
+fex = "fractal_explorer_vae.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fractal_explorer_vae*"]
+exclude = ["data*", "notebooks*", "rendered_fractals*", "tests*"]
