@@ -1,9 +1,8 @@
 import os
-import json
 import shutil
 import unittest
 from pathlib import Path
-from src.core.data_managers import image_manager
+from fractal_explorer_vae.core.data_managers import image_manager
 
 class TestImageManager(unittest.TestCase):
 
@@ -16,43 +15,43 @@ class TestImageManager(unittest.TestCase):
         self.test_root_dir.mkdir(exist_ok=True)
 
         # Override manager's file paths to point to temporary files
-        self.original_current_images_file = image_manager.CURRENT_IMAGES_FILE
+        self.original_active_images_file = image_manager.ACTIVE_IMAGES_FILE
         self.original_removed_images_file = image_manager.REMOVED_IMAGES_FILE
         self.original_rendered_fractals_dir = image_manager.RENDERED_FRACTALS_DIR
-        self.original_current_images_dir = image_manager.CURRENT_IMAGES_DIR
+        self.original_active_images_dir = image_manager.ACTIVE_IMAGES_DIR
         self.original_removed_images_dir = image_manager.REMOVED_IMAGES_DIR
         self.original_staging_images_dir = image_manager.STAGING_IMAGES_DIR
 
-        image_manager.CURRENT_IMAGES_FILE = self.test_root_dir / "test_current_fractal_images.json"
+        image_manager.ACTIVE_IMAGES_FILE = self.test_root_dir / "test_active_fractal_images.json"
         image_manager.REMOVED_IMAGES_FILE = self.test_root_dir / "test_removed_fractal_images.json"
         
         # Create temporary image directories within the test root
         self.test_rendered_fractals_dir = self.test_root_dir / "rendered_fractals"
-        self.test_current_images_dir = self.test_rendered_fractals_dir / "current"
+        self.test_active_images_dir = self.test_rendered_fractals_dir / "active"
         self.test_removed_images_dir = self.test_rendered_fractals_dir / "removed"
         self.test_staging_images_dir = self.test_rendered_fractals_dir / "staging"
 
         # Override manager's directory paths
         image_manager.RENDERED_FRACTALS_DIR = self.test_rendered_fractals_dir
-        image_manager.CURRENT_IMAGES_DIR = self.test_current_images_dir
+        image_manager.ACTIVE_IMAGES_DIR = self.test_active_images_dir
         image_manager.REMOVED_IMAGES_DIR = self.test_removed_images_dir
         image_manager.STAGING_IMAGES_DIR = self.test_staging_images_dir
 
         # Ensure all test directories exist and are empty
         if self.test_rendered_fractals_dir.exists():
             shutil.rmtree(self.test_rendered_fractals_dir) # Remove recursively
-        self.test_current_images_dir.mkdir(parents=True, exist_ok=True)
+        self.test_active_images_dir.mkdir(parents=True, exist_ok=True)
         self.test_removed_images_dir.mkdir(parents=True, exist_ok=True)
         self.test_staging_images_dir.mkdir(parents=True, exist_ok=True)
 
         # Ensure test JSON files are empty
-        if image_manager.CURRENT_IMAGES_FILE.exists():
-            os.remove(image_manager.CURRENT_IMAGES_FILE)
+        if image_manager.ACTIVE_IMAGES_FILE.exists():
+            os.remove(image_manager.ACTIVE_IMAGES_FILE)
         if image_manager.REMOVED_IMAGES_FILE.exists():
             os.remove(image_manager.REMOVED_IMAGES_FILE)
 
         # Initialize empty data for tests
-        self.current_images = {}
+        self.active_images = {}
         self.removed_images = {}
 
         # Define a sample image metadata
@@ -74,10 +73,10 @@ class TestImageManager(unittest.TestCase):
             shutil.rmtree(self.test_root_dir) # Remove recursively
 
         # Restore original file paths and directory paths
-        image_manager.CURRENT_IMAGES_FILE = self.original_current_images_file
+        image_manager.ACTIVE_IMAGES_FILE = self.original_active_images_file
         image_manager.REMOVED_IMAGES_FILE = self.original_removed_images_file
         image_manager.RENDERED_FRACTALS_DIR = self.original_rendered_fractals_dir
-        image_manager.CURRENT_IMAGES_DIR = self.original_current_images_dir
+        image_manager.ACTIVE_IMAGES_DIR = self.original_active_images_dir
         image_manager.REMOVED_IMAGES_DIR = self.original_removed_images_dir
         image_manager.STAGING_IMAGES_DIR = self.original_staging_images_dir
 
@@ -94,114 +93,114 @@ class TestImageManager(unittest.TestCase):
         staged_filepath = self._create_dummy_staged_image()
         
         image_id, move_success = image_manager.add_image(
-            self.sample_image_params, staged_filepath, self.current_images, self.removed_images
+            self.sample_image_params, staged_filepath, self.active_images, self.removed_images
         )
         self.assertTrue(move_success)
         self.assertIsNotNone(image_id)
         self.assertTrue(image_id.startswith('image_'))
-        self.assertEqual(len(self.current_images), 1)
-        self.assertIn(image_id, self.current_images)
-        self.assertEqual(self.current_images[image_id]['seed_id'], 'seed_00001')
-        self.assertTrue(self.current_images[image_id]['file_moved_successfully'])
+        self.assertEqual(len(self.active_images), 1)
+        self.assertIn(image_id, self.active_images)
+        self.assertEqual(self.active_images[image_id]['seed_id'], 'seed_00001')
+        self.assertTrue(self.active_images[image_id]['file_moved_successfully'])
 
         # Verify physical file moved and staging file is gone
         self.assertFalse(staged_filepath.exists())
-        expected_dest_path = self.test_current_images_dir / f"{image_id}{staged_filepath.suffix}"
+        expected_dest_path = self.test_active_images_dir / f"{image_id}{staged_filepath.suffix}"
         self.assertTrue(expected_dest_path.exists())
         with open(expected_dest_path, 'rb') as f:
             self.assertEqual(f.read(), self.dummy_image_content)
         
         # Verify metadata filename path
-        self.assertEqual(self.current_images[image_id]['filename'], f'current/{image_id}{staged_filepath.suffix}')
+        self.assertEqual(self.active_images[image_id]['filename'], f'active/{image_id}{staged_filepath.suffix}')
 
         # Verify data is persisted
-        loaded_current, _ = image_manager.load_all_images()
-        self.assertIn(image_id, loaded_current)
-        self.assertEqual(loaded_current[image_id]['resolution'], 1024)
+        loaded_active, _ = image_manager.load_all_images()
+        self.assertIn(image_id, loaded_active)
+        self.assertEqual(loaded_active[image_id]['resolution'], 1024)
 
     def test_add_image_source_not_found(self):
         non_existent_filepath = self.test_staging_images_dir / "non_existent.png"
         
         image_id, move_success = image_manager.add_image(
-            self.sample_image_params, non_existent_filepath, self.current_images, self.removed_images
+            self.sample_image_params, non_existent_filepath, self.active_images, self.removed_images
         )
         self.assertFalse(move_success) # Expect move to fail
         self.assertIsNotNone(image_id) # Metadata should still be added
-        self.assertIn(image_id, self.current_images)
-        self.assertFalse(self.current_images[image_id]['file_moved_successfully']) # Verify flag
+        self.assertIn(image_id, self.active_images)
+        self.assertFalse(self.active_images[image_id]['file_moved_successfully']) # Verify flag
 
         # Verify data is persisted with correct flag
-        loaded_current, _ = image_manager.load_all_images()
-        self.assertIn(image_id, loaded_current)
-        self.assertFalse(loaded_current[image_id]['file_moved_successfully'])
+        loaded_active, _ = image_manager.load_all_images()
+        self.assertIn(image_id, loaded_active)
+        self.assertFalse(loaded_active[image_id]['file_moved_successfully'])
 
 
     def test_get_image_by_id(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
         
-        # Test retrieving current image
-        retrieved_image, status = image_manager.get_image_by_id(image_id, self.current_images, self.removed_images)
+        # Test retrieving active image
+        retrieved_image, status = image_manager.get_image_by_id(image_id, self.active_images, self.removed_images)
         self.assertIsNotNone(retrieved_image)
-        self.assertEqual(status, 'current')
+        self.assertEqual(status, 'active')
         self.assertEqual(retrieved_image['resolution'], 1024)
 
         # Test retrieving non-existent image
-        non_existent_image, status = image_manager.get_image_by_id('image_999999', self.current_images, self.removed_images)
+        non_existent_image, status = image_manager.get_image_by_id('image_999999', self.active_images, self.removed_images)
         self.assertIsNone(non_existent_image)
         self.assertIsNone(status)
 
         # Test retrieving removed image
-        image_manager.remove_image(image_id, self.current_images, self.removed_images)
-        retrieved_image, status = image_manager.get_image_by_id(image_id, self.current_images, self.removed_images)
+        image_manager.remove_image(image_id, self.active_images, self.removed_images)
+        retrieved_image, status = image_manager.get_image_by_id(image_id, self.active_images, self.removed_images)
         self.assertIsNotNone(retrieved_image)
         self.assertEqual(status, 'removed')
         self.assertEqual(retrieved_image['resolution'], 1024)
 
     def test_update_image(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
         
         # Test updating existing fields
         updates = {'aesthetic_rating': 'data_friendly', 'resolution': 512}
-        success = image_manager.update_image(image_id, updates, self.current_images, self.removed_images)
+        success = image_manager.update_image(image_id, updates, self.active_images, self.removed_images)
         self.assertTrue(success)
-        self.assertEqual(self.current_images[image_id]['aesthetic_rating'], 'data_friendly')
-        self.assertEqual(self.current_images[image_id]['resolution'], 512)
+        self.assertEqual(self.active_images[image_id]['aesthetic_rating'], 'data_friendly')
+        self.assertEqual(self.active_images[image_id]['resolution'], 512)
 
         # Test updating non-existent field (should print warning but return True if other updates succeed)
         updates_with_bad_key = {'new_image_key': 'value', 'colormap_name': 'magma'}
-        success = image_manager.update_image(image_id, updates_with_bad_key, self.current_images, self.removed_images)
+        success = image_manager.update_image(image_id, updates_with_bad_key, self.active_images, self.removed_images)
         self.assertTrue(success)
-        self.assertEqual(self.current_images[image_id]['colormap_name'], 'magma')
-        self.assertNotIn('new_image_key', self.current_images[image_id])
+        self.assertEqual(self.active_images[image_id]['colormap_name'], 'magma')
+        self.assertNotIn('new_image_key', self.active_images[image_id])
 
         # Test updating non-existent image
-        success = image_manager.update_image('image_999999', {'resolution': 256}, self.current_images, self.removed_images)
+        success = image_manager.update_image('image_999999', {'resolution': 256}, self.active_images, self.removed_images)
         self.assertFalse(success)
 
         # Test that updates are persisted
-        loaded_current, _ = image_manager.load_all_images()
-        self.assertEqual(loaded_current[image_id]['aesthetic_rating'], 'data_friendly')
-        self.assertEqual(loaded_current[image_id]['colormap_name'], 'magma')
+        loaded_active, _ = image_manager.load_all_images()
+        self.assertEqual(loaded_active[image_id]['aesthetic_rating'], 'data_friendly')
+        self.assertEqual(loaded_active[image_id]['colormap_name'], 'magma')
 
 
     def test_remove_image_success(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
         
         # Verify initial state
-        current_path = self.test_current_images_dir / f"{image_id}{staged_filepath.suffix}"
-        self.assertTrue(current_path.exists())
+        active_path = self.test_active_images_dir / f"{image_id}{staged_filepath.suffix}"
+        self.assertTrue(active_path.exists())
 
         # Test removing an existing image
-        success = image_manager.remove_image(image_id, self.current_images, self.removed_images)
+        success = image_manager.remove_image(image_id, self.active_images, self.removed_images)
         self.assertTrue(success)
-        self.assertNotIn(image_id, self.current_images)
+        self.assertNotIn(image_id, self.active_images)
         self.assertIn(image_id, self.removed_images)
         
-        # Verify physical file moved and current file is gone
-        self.assertFalse(current_path.exists())
+        # Verify physical file moved and active file is gone
+        self.assertFalse(active_path.exists())
         expected_dest_path = self.test_removed_images_dir / f"{image_id}{staged_filepath.suffix}"
         self.assertTrue(expected_dest_path.exists())
         with open(expected_dest_path, 'rb') as f:
@@ -212,83 +211,83 @@ class TestImageManager(unittest.TestCase):
         self.assertTrue(self.removed_images[image_id]['file_moved_successfully'])
 
         # Verify data is persisted
-        loaded_current, loaded_removed = image_manager.load_all_images()
-        self.assertNotIn(image_id, loaded_current)
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertNotIn(image_id, loaded_active)
         self.assertIn(image_id, loaded_removed)
 
 
     def test_remove_image_file_not_found(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
         
         # Manually delete the file to simulate external deletion
-        os.remove(self.test_current_images_dir / f"{image_id}{staged_filepath.suffix}")
+        os.remove(self.test_active_images_dir / f"{image_id}{staged_filepath.suffix}")
 
         # Test removing when file is already gone
-        success = image_manager.remove_image(image_id, self.current_images, self.removed_images)
+        success = image_manager.remove_image(image_id, self.active_images, self.removed_images)
         self.assertFalse(success) # Expect move to fail
-        self.assertNotIn(image_id, self.current_images) # Metadata should still be moved
+        self.assertNotIn(image_id, self.active_images) # Metadata should still be moved
         self.assertIn(image_id, self.removed_images)
         self.assertFalse(self.removed_images[image_id]['file_moved_successfully']) # Verify flag
 
         # Verify data is persisted with correct flag
-        loaded_current, loaded_removed = image_manager.load_all_images()
-        self.assertNotIn(image_id, loaded_current)
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertNotIn(image_id, loaded_active)
         self.assertIn(image_id, loaded_removed)
         self.assertFalse(loaded_removed[image_id]['file_moved_successfully'])
 
 
     def test_restore_image_success(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
-        image_manager.remove_image(image_id, self.current_images, self.removed_images) # First remove it
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
+        image_manager.remove_image(image_id, self.active_images, self.removed_images) # First remove it
 
         # Verify initial removed state
         removed_path = self.test_removed_images_dir / f"{image_id}{staged_filepath.suffix}"
         self.assertTrue(removed_path.exists())
 
         # Test restoring a removed image
-        success = image_manager.restore_image(image_id, self.current_images, self.removed_images)
+        success = image_manager.restore_image(image_id, self.active_images, self.removed_images)
         self.assertTrue(success)
-        self.assertIn(image_id, self.current_images)
+        self.assertIn(image_id, self.active_images)
         self.assertNotIn(image_id, self.removed_images)
 
         # Verify physical file moved and removed file is gone
         self.assertFalse(removed_path.exists())
-        expected_dest_path = self.test_current_images_dir / f"{image_id}{staged_filepath.suffix}"
+        expected_dest_path = self.test_active_images_dir / f"{image_id}{staged_filepath.suffix}"
         self.assertTrue(expected_dest_path.exists())
         with open(expected_dest_path, 'rb') as f:
             self.assertEqual(f.read(), self.dummy_image_content)
 
         # Verify metadata filename path and file_moved_successfully flag
-        self.assertEqual(self.current_images[image_id]['filename'], f'current/{image_id}{staged_filepath.suffix}')
-        self.assertTrue(self.current_images[image_id]['file_moved_successfully'])
+        self.assertEqual(self.active_images[image_id]['filename'], f'active/{image_id}{staged_filepath.suffix}')
+        self.assertTrue(self.active_images[image_id]['file_moved_successfully'])
 
         # Verify data is persisted
-        loaded_current, loaded_removed = image_manager.load_all_images()
-        self.assertIn(image_id, loaded_current)
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertIn(image_id, loaded_active)
         self.assertNotIn(image_id, loaded_removed)
 
     def test_restore_image_file_not_found(self):
         staged_filepath = self._create_dummy_staged_image()
-        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.current_images, self.removed_images)
-        image_manager.remove_image(image_id, self.current_images, self.removed_images) # First remove it
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
+        image_manager.remove_image(image_id, self.active_images, self.removed_images) # First remove it
 
         # Manually delete the file to simulate external deletion from removed
         os.remove(self.test_removed_images_dir / f"{image_id}{staged_filepath.suffix}")
 
         # Test restoring when file is already gone
-        success = image_manager.restore_image(image_id, self.current_images, self.removed_images)
+        success = image_manager.restore_image(image_id, self.active_images, self.removed_images)
         self.assertFalse(success) # Expect move to fail
-        self.assertIn(image_id, self.current_images) # Metadata should still be moved
+        self.assertIn(image_id, self.active_images) # Metadata should still be moved
         self.assertNotIn(image_id, self.removed_images)
-        self.assertFalse(self.current_images[image_id]['file_moved_successfully']) # Verify flag
+        self.assertFalse(self.active_images[image_id]['file_moved_successfully']) # Verify flag
 
         # Verify data is persisted with correct flag
-        loaded_current, loaded_removed = image_manager.load_all_images()
-        self.assertIn(image_id, loaded_current)
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertIn(image_id, loaded_active)
         self.assertNotIn(image_id, loaded_removed)
-        self.assertFalse(loaded_current[image_id]['file_moved_successfully'])
+        self.assertFalse(loaded_active[image_id]['file_moved_successfully'])
 
 
     def test_list_images(self):
@@ -298,59 +297,59 @@ class TestImageManager(unittest.TestCase):
 
         img1_params = self.sample_image_params.copy()
         img1_params.update({'aesthetic_rating': 'human_friendly', 'resolution': 512, 'colormap_name': 'twilight'})
-        img1_id, _ = image_manager.add_image(img1_params, staged_filepath_1, self.current_images, self.removed_images)
+        img1_id, _ = image_manager.add_image(img1_params, staged_filepath_1, self.active_images, self.removed_images)
 
         img2_params = self.sample_image_params.copy()
         img2_params.update({'aesthetic_rating': 'data_friendly', 'resolution': 1024, 'colormap_name': 'glasbey'})
-        img2_id, _ = image_manager.add_image(img2_params, staged_filepath_2, self.current_images, self.removed_images)
+        img2_id, _ = image_manager.add_image(img2_params, staged_filepath_2, self.active_images, self.removed_images)
 
         img3_params = self.sample_image_params.copy()
         img3_params.update({'aesthetic_rating': 'experimental', 'resolution': 512, 'colormap_name': 'viridis'})
-        img3_id, _ = image_manager.add_image(img3_params, staged_filepath_3, self.current_images, self.removed_images)
+        img3_id, _ = image_manager.add_image(img3_params, staged_filepath_3, self.active_images, self.removed_images)
 
         # Move img1 to removed
-        image_manager.remove_image(img1_id, self.current_images, self.removed_images)
+        image_manager.remove_image(img1_id, self.active_images, self.removed_images)
 
         # Test listing all
-        current, removed = image_manager.list_images(aesthetic_filter='all', status='all')
-        self.assertEqual(len(current), 2) # img2, img3
+        active, removed = image_manager.list_images(aesthetic_filter='all', status='all')
+        self.assertEqual(len(active), 2) # img2, img3
         self.assertEqual(len(removed), 1) # img1
-        self.assertIn(img2_id, current)
-        self.assertIn(img3_id, current)
+        self.assertIn(img2_id, active)
+        self.assertIn(img3_id, active)
         self.assertIn(img1_id, removed)
 
         # Test aesthetic filter
-        human_friendly_current, _ = image_manager.list_images(aesthetic_filter='human_friendly')
-        self.assertEqual(len(human_friendly_current), 0) # img1 was human_friendly but is removed
+        human_friendly_active, _ = image_manager.list_images(aesthetic_filter='human_friendly')
+        self.assertEqual(len(human_friendly_active), 0) # img1 was human_friendly but is removed
         
         # Corrected test for aesthetic filter
-        human_friendly_all_status_current, human_friendly_all_status_removed = image_manager.list_images(aesthetic_filter='human_friendly')
-        self.assertEqual(len(human_friendly_all_status_current), 0) # No current human_friendly
+        human_friendly_all_status_active, human_friendly_all_status_removed = image_manager.list_images(aesthetic_filter='human_friendly')
+        self.assertEqual(len(human_friendly_all_status_active), 0) # No active human_friendly
         self.assertEqual(len(human_friendly_all_status_removed), 1) # img1 is human_friendly and removed
         self.assertIn(img1_id, human_friendly_all_status_removed)
 
-        data_friendly_current, _ = image_manager.list_images(aesthetic_filter='data_friendly')
-        self.assertEqual(len(data_friendly_current), 1)
-        self.assertIn(img2_id, data_friendly_current)
+        data_friendly_active, _ = image_manager.list_images(aesthetic_filter='data_friendly')
+        self.assertEqual(len(data_friendly_active), 1)
+        self.assertIn(img2_id, data_friendly_active)
 
         # Test resolution filter
-        res_512_current, res_512_removed = image_manager.list_images(resolution_filter=512)
-        self.assertEqual(len(res_512_current), 1) # img3
+        res_512_active, res_512_removed = image_manager.list_images(resolution_filter=512)
+        self.assertEqual(len(res_512_active), 1) # img3
         self.assertEqual(len(res_512_removed), 1) # img1
-        self.assertIn(img3_id, res_512_current)
+        self.assertIn(img3_id, res_512_active)
         self.assertIn(img1_id, res_512_removed)
 
         # Test colormap filter
-        viridis_current, _ = image_manager.list_images(colormap_filter='viridis')
-        self.assertEqual(len(viridis_current), 1)
-        self.assertIn(img3_id, viridis_current)
+        viridis_active, _ = image_manager.list_images(colormap_filter='viridis')
+        self.assertEqual(len(viridis_active), 1)
+        self.assertIn(img3_id, viridis_active)
 
         # Test combined filters
-        filtered_current, filtered_removed = image_manager.list_images(
+        filtered_active, filtered_removed = image_manager.list_images(
             aesthetic_filter='experimental', resolution_filter=512, colormap_filter='viridis'
         )
-        self.assertEqual(len(filtered_current), 1)
-        self.assertIn(img3_id, filtered_current)
+        self.assertEqual(len(filtered_active), 1)
+        self.assertIn(img3_id, filtered_active)
         self.assertEqual(len(filtered_removed), 0)
 
 

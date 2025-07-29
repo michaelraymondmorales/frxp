@@ -9,3 +9,4 @@ removed_fractal_images.json
 current_fractal_seeds.json
 removed_fractal_seeds.json
 *.log
+*.egg-info/
