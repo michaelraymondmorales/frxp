@@ -352,6 +352,87 @@ class TestImageManager(unittest.TestCase):
         self.assertIn(img3_id, filtered_active)
         self.assertEqual(len(filtered_removed), 0)
 
+    def test_purge_image_success(self):
+        # Add an image, then remove it so it's in 'removed_images' and its file is in the removed directory
+        staged_filepath = self._create_dummy_staged_image()
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
+        image_manager.remove_image(image_id, self.active_images, self.removed_images)
+        
+        # Verify it's in removed_images and its physical file exists in the removed directory
+        self.assertIn(image_id, self.removed_images)
+        removed_file_path = self.test_removed_images_dir / f"{image_id}{staged_filepath.suffix}"
+        self.assertTrue(removed_file_path.exists())
+
+        # Purge the image
+        purged_data, success = image_manager.purge_image(image_id, self.active_images, self.removed_images)
+        
+        # Assertions for successful purge
+        self.assertTrue(success)
+        self.assertIsNotNone(purged_data)
+        self.assertEqual(purged_data['resolution'], 1024) # Check some data from the purged image
+        self.assertTrue(purged_data.get('physical_file_deleted')) # Verify the flag is True
+        self.assertNotIn(image_id, self.removed_images) # Should no longer be in removed_images
+        
+        # Verify physical file is deleted
+        self.assertFalse(removed_file_path.exists())
+
+        # Verify persistence: load from file and check
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertNotIn(image_id, loaded_active)
+        self.assertNotIn(image_id, loaded_removed) # Crucially, should be gone from both
+
+    def test_purge_image_not_in_removed(self):
+        # Attempt to purge a non-existent image
+        purged_data, success = image_manager.purge_image('image_999999', self.active_images, self.removed_images)
+        self.assertFalse(success)
+        self.assertIsNone(purged_data)
+        self.assertEqual(len(self.active_images), 0)
+        self.assertEqual(len(self.removed_images), 0)
+
+    def test_purge_image_active(self):
+        # Add an image, leave it in 'active_images'
+        staged_filepath = self._create_dummy_staged_image()
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
+        self.assertIn(image_id, self.active_images)
+
+        # Attempt to purge an active image (should fail)
+        purged_data, success = image_manager.purge_image(image_id, self.active_images, self.removed_images)
+        self.assertFalse(success)
+        self.assertIsNone(purged_data)
+        self.assertIn(image_id, self.active_images) # Should still be active
+        self.assertNotIn(image_id, self.removed_images) # Should not have moved to removed
+
+        # Verify persistence: load from file and check
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertIn(image_id, loaded_active)
+        self.assertNotIn(image_id, loaded_removed)
+        
+        # Verify physical file is still in active directory
+        active_file_path = self.test_active_images_dir / f"{image_id}{staged_filepath.suffix}"
+        self.assertTrue(active_file_path.exists())
+
+
+    def test_purge_image_file_already_deleted(self):
+        # Add an image, remove it, then manually delete its physical file
+        staged_filepath = self._create_dummy_staged_image()
+        image_id, _ = image_manager.add_image(self.sample_image_params, staged_filepath, self.active_images, self.removed_images)
+        image_manager.remove_image(image_id, self.active_images, self.removed_images)
+        
+        removed_file_path = self.test_removed_images_dir / f"{image_id}{staged_filepath.suffix}"
+        os.remove(removed_file_path) # Manually delete the file
+
+        # Purge the image (metadata should still be purged, but file deletion flag should be False)
+        purged_data, success = image_manager.purge_image(image_id, self.active_images, self.removed_images)
+        
+        self.assertTrue(success) # Metadata purge should still succeed
+        self.assertIsNotNone(purged_data)
+        self.assertFalse(purged_data.get('physical_file_deleted')) # Flag should be False
+        self.assertNotIn(image_id, self.removed_images) # Metadata gone
+
+        # Verify persistence
+        loaded_active, loaded_removed = image_manager.load_all_images()
+        self.assertNotIn(image_id, loaded_removed)
+
 
 # To run these tests from the project root:
 # python -m unittest tests/test_image_manager.py

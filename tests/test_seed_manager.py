@@ -1,4 +1,5 @@
 import os
+import shutil
 import unittest
 from pathlib import Path
 from fractal_explorer_vae.core.data_managers import seed_manager
@@ -10,15 +11,15 @@ class TestSeedManager(unittest.TestCase):
         Set up a temporary environment for each test.
         This ensures tests are isolated and don't interfere with real data.
         """
-        self.test_dir = Path("test_data_seed_manager")
-        self.test_dir.mkdir(exist_ok=True)
+        self.test_root_dir = Path("test_data_seed_manager")
+        self.test_root_dir.mkdir(exist_ok=True)
 
         # Override manager's file paths to point to temporary files
         self.original_active_seeds_file = seed_manager.ACTIVE_SEEDS_FILE
         self.original_removed_seeds_file = seed_manager.REMOVED_SEEDS_FILE
 
-        seed_manager.ACTIVE_SEEDS_FILE = self.test_dir / "test_active_fractal_seeds.json"
-        seed_manager.REMOVED_SEEDS_FILE = self.test_dir / "test_removed_fractal_seeds.json"
+        seed_manager.ACTIVE_SEEDS_FILE = self.test_root_dir / "test_active_fractal_seeds.json"
+        seed_manager.REMOVED_SEEDS_FILE = self.test_root_dir / "test_removed_fractal_seeds.json"
 
         # Ensure test files are empty at the start of each test
         if seed_manager.ACTIVE_SEEDS_FILE.exists():
@@ -56,8 +57,8 @@ class TestSeedManager(unittest.TestCase):
             os.remove(seed_manager.REMOVED_SEEDS_FILE)
         
         # Remove temporary directory
-        if self.test_dir.exists():
-            self.test_dir.rmdir() # rmdir only works if directory is empty
+        if self.test_root_dir.exists():
+            shutil.rmtree(self.test_root_dir)
 
         # Restore original file paths to avoid affecting other tests or main app
         seed_manager.ACTIVE_SEEDS_FILE = self.original_active_seeds_file
@@ -218,6 +219,53 @@ class TestSeedManager(unittest.TestCase):
         invalid_status_seeds = seed_manager.list_seeds(self.active_seeds, self.removed_seeds, 'invalid')
         self.assertEqual(len(invalid_status_seeds), 0)
 
+    def test_purge_seed_success(self):
+        # Add a seed, then remove it so it's in 'removed_seeds'
+        seed_id = seed_manager.add_seed(self.sample_seed_params, self.active_seeds, self.removed_seeds)
+        seed_manager.remove_seed(seed_id, self.active_seeds, self.removed_seeds)
+        
+        # Verify it's in removed before purging
+        self.assertIn(seed_id, self.removed_seeds)
+        self.assertNotIn(seed_id, self.active_seeds)
+
+        # Purge the seed
+        purged_data, success = seed_manager.purge_seed(seed_id, self.active_seeds, self.removed_seeds)
+        
+        # Assertions for successful purge
+        self.assertTrue(success)
+        self.assertIsNotNone(purged_data)
+        self.assertEqual(purged_data['type'], 'Julia') # Check some data from the purged seed
+        self.assertNotIn(seed_id, self.removed_seeds) # Should no longer be in removed_seeds
+        
+        # Verify persistence: load from file and check
+        loaded_active, loaded_removed = seed_manager.load_all_seeds()
+        self.assertNotIn(seed_id, loaded_active)
+        self.assertNotIn(seed_id, loaded_removed) # Crucially, should be gone from both
+
+    def test_purge_seed_not_in_removed(self):
+        # Attempt to purge a non-existent seed
+        purged_data, success = seed_manager.purge_seed('seed_99999', self.active_seeds, self.removed_seeds)
+        self.assertFalse(success)
+        self.assertIsNone(purged_data)
+        self.assertEqual(len(self.active_seeds), 0)
+        self.assertEqual(len(self.removed_seeds), 0)
+
+    def test_purge_seed_active(self):
+        # Add a seed, leave it in 'active_seeds'
+        seed_id = seed_manager.add_seed(self.sample_seed_params, self.active_seeds, self.removed_seeds)
+        self.assertIn(seed_id, self.active_seeds)
+
+        # Attempt to purge an active seed (should fail)
+        purged_data, success = seed_manager.purge_seed(seed_id, self.active_seeds, self.removed_seeds)
+        self.assertFalse(success)
+        self.assertIsNone(purged_data)
+        self.assertIn(seed_id, self.active_seeds) # Should still be active
+        self.assertNotIn(seed_id, self.removed_seeds) # Should not have moved to removed
+
+        # Verify persistence: load from file and check
+        loaded_active, loaded_removed = seed_manager.load_all_seeds()
+        self.assertIn(seed_id, loaded_active)
+        self.assertNotIn(seed_id, loaded_removed)
 
 # To run these tests from the project root:
 # python -m unittest tests/test_seed_manager.py
