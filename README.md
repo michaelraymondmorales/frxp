@@ -93,7 +93,7 @@ FractalExplorerVAE/
 │   └── staging/                           # Temporary directory for rendered images
 │       └── .gitkeep                       # Placeholder to keep directory in Git
 ├── tests/                                 # Unit and integration tests
-│   ├── test_CLI.py
+│   ├── test_cli.py
 │   ├── test_image_manager.py
 │   └── test_seed_manager.py
 ```
