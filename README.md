@@ -1,6 +1,6 @@
 # **FractalExplorerVAE**
 
-![FractalExplorerVAE Banner](docs/JuliaAngleMap(0.347+0.067j).jpg)
+![FractalExplorerVAE Banner](docs/anglemap.jpg)
 
 ## **Table of Contents**
 
@@ -33,7 +33,7 @@ The core motivation behind this project is to dive into the infinite universe of
   * Supports various fractal types (e.g., Julia, Mandelbrot) and powers.  
 * **Generated Image Management:**  
   * Log metadata for generated fractal images (associated seed, resolution, colormap, aesthetic rating).  
-  * Organize physical image files into current and removed states.  
+  * Organize physical image files into active and removed states.  
 * **CLI Explorer:**  
   * A user-friendly command-line interface for all management tasks.  
 * **Extensible Architecture:**  
@@ -43,60 +43,60 @@ The core motivation behind this project is to dive into the infinite universe of
 ## **Project Structure**
 
 The project follows a clean, modular structure to facilitate development and future expansion:  
-FractalExplorerVAE/  
-├── src/                              # Main application source code (Python package)  
-│   ├── __init__.py                    # Makes 'src' a Python package  
-│   │  
-│   ├── core/                         # Core domain logic and shared utilities  
-│   │   ├── __init__.py                # Makes 'core' a subpackage  
-│   │   ├── fractal_calcs.py              # Numba-optimized fractal calculation functions  
-│   │   ├── coord_converter.py            # Utilities for coordinate transformations  
-│   │   ├── coord_generator.py            # Utilities for generating coordinate grids  
-│   │   └── data_managers/           # Subpackage for data management  
-│   │       ├── __init__.py            # Makes 'data_managers' a subpackage   
-│   │       ├── seed_manager.py           # Manages fractal seed metadata (JSON)  
-│   │       └── image_manager.py          # Manages image metadata (JSON) and physical files  
-│   │  
-│   ├── cli/                          # Command-Line Interface application  
-│   │   ├── __init__.py                # Makes 'cli' a subpackage  
-│   │   ├── main.py                        # CLI entry point (argparse setup)  
-│   │   └── renderer.py                    # CLI-specific image rendering logic  
-│   │  
-│   ├── vae/                          # Variational Autoencoder (VAE) components (Future)  
-│   │   ├── __init__.py                # Makes 'vae' a subpackage  
-│   │   ├── model.py                       # VAE model architecture  
-│   │   └── train.py                       # VAE training script  
-│   │  
-│   └── web_app/                     # Web application interface (Future)  
-│       ├── __init__.py                # Makes 'web_app' a subpackage   
-│       ├── app.py                         
-│       └── ...  
-│  
-├── notebooks/                   	    # Jupyter notebooks for exploration, analysis, and VAE testing  
-│   └── README.md                          # Explanation of notebook contents  
-│  
-├── data/                             # JSON metadata files for seeds and images  
-│   ├── current_fractal_seeds.json  
-│   ├── removed_fractal_seeds.json  
-│   ├── current_fractal_images.json  
-│   └── removed_fractal_images.json  
-│  
-├── rendered_fractals/               # Stores generated fractal images  
-│   ├── current/                      # Currently active images  
-│   │   └── .gitkeep                       # Placeholder to keep directory in Git  
-│   ├── removed/                      # Images moved to removed status    
-│   │   └── .gitkeep                       # Placeholder to keep directory in Git  
-│   └── staging/                      # Temporary directory for newly rendered images  
-│       └── .gitkeep                       # Placeholder to keep directory in Git  
-│  
-├── tests/                            # Unit and integration tests  
-│   ├── test_seed_manager.py  
-│   └── test_image_manager.py  
-│  
-├── .gitignore                             # Specifies files/directories to ignore by Git  
-├── pyproject.toml                         # Project metadata and dependencies  
+```
+FractalExplorerVAE/
+├── .gitignore                             # Specifies files/directories to ignore by Git
+├── data/                                  # JSON metadata files for seeds and images
+│   ├── active_fractal_images.json
+│   ├── active_fractal_seeds.json
+│   ├── removed_fractal_images.json
+│   └── removed_fractal_seeds.json
+├── docs/                                  # Supplemental documents
+│   ├── anglemap.jpg                       # README banner image
+│   └── julia_set_math.md                  # Julia mathematics notes
+├── fractal_explorer_vae/                  # Main application source code (package)
+│   ├── __init__.py                        # Makes 'fractal_explorer_vae' a package
+│   │
+│   ├── cli/                               # Command-Line Interface application
+│   │   ├── __init__.py                    # Makes 'cli' a subpackage
+│   │   ├── main.py                        # CLI entry point (argparse setup)
+│   │   └── renderer.py                    # CLI-specific image rendering logic
+│   │
+│   ├── core/                              # Core domain logic and shared utilities
+│   │   ├── __init__.py                    # Makes 'core' a subpackage
+│   │   ├── coord_converter.py             # Utilities for coordinate transformations
+│   │   ├── coord_generator.py             # Utilities for generating coordinate grids
+│   │   ├── data_managers/                 # Subpackage for data management
+│   │   │   ├── __init__.py                # Makes 'data_managers' a subpackage
+│   │   │   ├── image_manager.py           # Manages image metadata (JSON) and files
+│   │   │   └── seed_manager.py            # Manages fractal seed metadata (JSON)
+│   │   └── fractal_calcs.py               # Numba fractal calculation functions
+│   │
+│   ├── vae/                               # Variational Autoencoder (VAE)(Future)
+│   │   ├── __init__.py                    # Makes 'vae' a subpackage
+│   │   ├── model.py                       # VAE model architecture
+│   │   └── train.py                       # VAE training script
+│   │
+│   └── web_app/                           # Web application interface (Future)
+│       ├── __init__.py                    # Makes 'web_app' a subpackage
+│       └── app.py
+├── LICENSE                                # MIT License
+├── notebooks/                             # Jupyter notebooks for analysis and testing
+│   └── README.md                          # Explanation of notebook contents
+├── pyproject.toml                         # Project metadata and dependencies
 ├── README.md                              # This file
-
+├── rendered_fractals/                     # Stores generated fractal images
+│   ├── active/                            # Currently active images
+│   │   └── .gitkeep                       # Placeholder to keep directory in Git
+│   ├── removed/                           # Images moved to removed status
+│   │   └── .gitkeep                       # Placeholder to keep directory in Git
+│   └── staging/                           # Temporary directory for rendered images
+│       └── .gitkeep                       # Placeholder to keep directory in Git
+├── tests/                                 # Unit and integration tests
+│   ├── test_CLI.py
+│   ├── test_image_manager.py
+│   └── test_seed_manager.py
+```
 ## **Getting Started**
 
 To get a local copy up and running, follow these simple steps.
@@ -212,7 +212,7 @@ fex seed update seed_00001 --iterations 800
 ```bash
 fex seed remove seed_00001
 ```
-* **Restore a seed (moves back to 'current' status):**  
+* **Restore a seed (moves back to 'active' status):**  
 ```bash
 fex seed restore seed_00001
 ```
