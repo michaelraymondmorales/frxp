@@ -1,7 +1,7 @@
 import sys
-import math
 import argparse
 from pathlib import Path
+import yaml
 from fractal_explorer_vae.cli import renderer
 from fractal_explorer_vae.core.data_managers import seed_manager
 from fractal_explorer_vae.core.data_managers import image_manager
@@ -23,7 +23,13 @@ def _print_seed_details(seed_id: str, seed_data: dict, status: str):
     """Helper to print formatted seed details."""
     print(f"\n--- Seed ID: {seed_id} ({status.capitalize()}) ---")
     for key, value in seed_data.items():
-        print(f"  {key.replace('_', ' ').capitalize()}: {value}")
+        # Special formatting for c_real and c_imag
+        if key == 'c_real' or key == 'c_imag':
+            print(f"  {key.replace('_', ' ').capitalize()}: {value:.10f}" if value is not None else f"  {key.replace('_', ' ').capitalize()}: None")
+        elif key in ["x_center", "y_center", "x_span", "y_span", "bailout"] and isinstance(value, (float, int)):
+            print(f"  {key.replace('_', ' ').capitalize()}: {value:.10f}")
+        else:
+            print(f"  {key.replace('_', ' ').capitalize()}: {value}")
     print("-" * (len(seed_id) + 16))
 
 def _print_image_details(image_id: str, image_data: dict, status: str):
@@ -62,7 +68,6 @@ def handle_add_seed(args):
         errors.append(f"Invalid fractal type: '{args.type}'. Must be one of {VALID_TYPES}.")
     
     # Validate 'power'
-    # Assuming power must be integer >= 2 for all fractal types
     if not isinstance(args.power, int) or args.power < 2: 
         errors.append(f"Invalid power: {args.power}. Must be an integer >= 2.")
     
@@ -75,18 +80,22 @@ def handle_add_seed(args):
         errors.append(f"Invalid bailout: {args.bailout}. Must be a positive number.")
 
     # Conditional validation for c_real/c_imag (only required for Julia or Multi-Julia)
-    # Check if they are finite numbers if provided, otherwise allow None
-    if args.c_real is not None and not math.isfinite(args.c_real):
-        errors.append(f"Invalid c_real value: {args.c_real}. Must be a finite number.")
-    if args.c_imag is not None and not math.isfinite(args.c_imag):
-        errors.append(f"Invalid c_imag value: {args.c_imag}. Must be a finite number.")
-
-    if args.type == 'Julia' or args.type == 'Multi-Julia':
+    if args.type in ['Julia', 'Multi-Julia']:
         if args.c_real is None or args.c_imag is None:
              errors.append(f"For '{args.type}' sets, --c_real and --c_imag are required.")
+        # If provided, attempt conversion to float for validation
+        else:
+            try:
+                float(args.c_real)
+            except ValueError:
+                errors.append(f"Invalid c_real value: '{args.c_real}'. Must be a valid number.")
+            try:
+                float(args.c_imag)
+            except ValueError:
+                errors.append(f"Invalid c_imag value: '{args.c_imag}'. Must be a valid number.")
     
     # If Mandelbrot is selected and c_real/c_imag are provided (which are usually ignored for Mandelbrot)
-    elif args.type == 'Mandelbrot' or args.type == 'Multi-Mandelbrot':
+    elif args.type in ['Mandelbrot', 'Multi-Mandelbrot']:
         if args.c_real is not None or args.c_imag is not None:
             print(f"Warning: c_real and c_imag are usually ignored for {args.type} sets and derived from pixel coordinates.")
 
@@ -97,6 +106,7 @@ def handle_add_seed(args):
             print(f"- {error}")
         sys.exit(1) # Exit with error code
         
+    # Pass args directly, seed_manager will map to its internal structure
     seed_params = {
         'type': args.type,
         'subtype': args.subtype,
@@ -105,15 +115,18 @@ def handle_add_seed(args):
         'y_span': args.y_span,
         'x_center': args.x_center,
         'y_center': args.y_center,
-        'c_real': args.c_real, # Will be None if not provided for Mandelbrot
-        'c_imag': args.c_imag, # Will be None if not provided for Mandelbrot
+        'c_real': args.c_real, # Passed as string/None, seed_manager expects this
+        'c_imag': args.c_imag, # Passed as string/None, seed_manager expects this
         'bailout': args.bailout,
-        'iterations': args.iterations
+        'iterations': args.iterations # Passed as is, seed_manager expects this
     }
     
     new_id = seed_manager.add_seed(seed_params, active_seeds, removed_seeds)
     print(f"Seed '{new_id}' added successfully.")
-    _print_seed_details(new_id, active_seeds[new_id], 'active')
+    # Retrieve the stored seed to print its details accurately from manager's format
+    added_seed_data, _ = seed_manager.get_seed_by_id(new_id, active_seeds, removed_seeds)
+    if added_seed_data:
+        _print_seed_details(new_id, added_seed_data, 'active')
 
 def handle_get_seed(args):
     """Handles the 'get-seed' command."""
@@ -129,10 +142,18 @@ def handle_update_seed(args):
     
     # Dynamically collect updates from args.
     for key, value in vars(args).items():
-        if key in ['seed_id', 'func', 'command', 'seed_command']:
+        if key in ['seed_id', 'func', 'command', 'seed_command', 'config']:
             continue
         if value is not None:
-            updates[key] = value
+            # For c_real and c_imag, attempt conversion for validation before passing
+            if key == 'c_real' or key == 'c_imag':
+                try:
+                    updates[key] = float(value) # Convert to float here for validation
+                except ValueError:
+                    print(f"Error: Invalid {key} value: '{value}'. Must be a valid number.")
+                    sys.exit(1) # Exit if invalid number
+            else:
+                updates[key] = value # Directly use the key as it matches seed_manager's keys
 
     if not updates:
         print("No fields provided for update.")
@@ -206,10 +227,10 @@ def handle_list_images(args):
         # For 'removed' only, just use removed_imgs directly.
         if args.status == 'all':
             # Combine and re-sort to ensure consistent output order for 'all'
-            combined_images = {**active_imgs, **removed_imgs}
+            combined_images = {**active_imgs, **removed_images} # Use removed_images global
             images_to_list = dict(sorted(combined_images.items()))
         else: # args.status == 'removed'
-            images_to_list = removed_imgs
+            images_to_list = removed_images
 
 
     if not images_to_list:
@@ -292,7 +313,7 @@ def handle_update_image(args):
     updates = {}
     # Dynamically collect updates from args, excluding image_id and command name
     for key, value in vars(args).items():
-        if key in ['image_id', 'func', 'command', 'image_command']:
+        if key in ['image_id', 'func', 'command', 'image_command', 'config']:
             continue
         if value is not None:
             updates[key] = value
@@ -399,25 +420,94 @@ def handle_render_image(args):
         print(f"An error occurred during rendering or adding image: {e}")
         sys.exit(1) # Exit with error code
 
+# --- YAML Script Runner ---
+def _run_commands_from_yaml(config_path: Path):
+    """
+    Reads a YAML configuration file and executes CLI commands defined within it.
+    """
+    if not config_path.exists():
+        print(f"Error: YAML configuration file not found at '{config_path}'.")
+        sys.exit(1)
+
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file '{config_path}': {e}")
+        sys.exit(1)
+
+    if 'commands' not in config or not isinstance(config['commands'], list):
+        print(f"Error: YAML file '{config_path}' must contain a 'commands' list at the top level.")
+        sys.exit(1)
+
+    print(f"\n--- Executing commands from YAML: {config_path} ---")
+    
+    # Load initial data once for the entire batch of commands
+    _load_initial_data() 
+
+    for i, cmd_def in enumerate(config['commands']):
+        print(f"\n--- Running Command {i+1}: {cmd_def.get('command')} {cmd_def.get('subcommand')} ---")
+        
+        command = cmd_def.get('command')
+        subcommand = cmd_def.get('subcommand')
+        args_dict = cmd_def.get('args', {})
+
+        if not command or not subcommand:
+            print(f"Skipping command {i+1}: 'command' and 'subcommand' are required.")
+            continue
+
+        # Construct argv list for the command
+        cmd_argv = [command, subcommand]
+        for arg_name, arg_value in args_dict.items():
+            # Crucial: Only append arguments if their value is not None.
+            # This prevents 'None' string from being passed for optional args.
+            if arg_value is not None:
+                cmd_argv.append(f"--{arg_name}")
+                cmd_argv.append(str(arg_value)) # Convert to string for argparse
+        
+        try:
+            # Call the main function with the specific command's argv
+            # Pass load_initial_data=False as data is already loaded
+            main(argv=cmd_argv, load_initial_data=False)
+        except SystemExit as e:
+            # Catch SystemExit from individual command handlers
+            if e.code != 0: # Only report if it's an error exit
+                print(f"Command {i+1} failed with exit code {e.code}.")
+            # Do not re-exit the entire script here, allow the loop to continue
+        except Exception as e:
+            print(f"An unexpected error occurred during command {i+1}: {e}")
+            # Do not re-exit the entire script here, allow the loop to continue
+
+    print(f"\n--- Finished executing commands from YAML: {config_path} ---")
+
+
 # --- Main CLI Setup ---
 
-def main():
-    _load_initial_data()
+def main(argv=None, load_initial_data=True): # Modified signature
+    if load_initial_data: # Conditionally load data
+        _load_initial_data()
+
+    # If argv is None, it means main was called directly without arguments (e.g., from __main__ block
+    # when --config was not present), so use sys.argv[1:].
+    # If argv is provided (e.g., from _run_commands_from_yaml), use that.
+    if argv is None: 
+        argv = sys.argv[1:] 
 
     parser = argparse.ArgumentParser(
         description="Fractal Explorer CLI: Manage fractal seeds and generated images, and render new fractals.",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    # NEW: Add a global --config argument (placeholder for future YAML config loading)
+    # Add the --config argument directly to the main parser
     parser.add_argument(
-        "--config",
+        '--config',
         type=Path,
-        help="Path to a YAML configuration file to load default arguments from. Command-line arguments will override config file values."
+        help="Path to a YAML configuration file for batch command execution."
     )
 
     # --- Subparsers for different commands ---
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+    # Set required=False for the main subparsers, as --config can be used instead
+    subparsers = parser.add_subparsers(dest="command", help="Available commands") 
 
     # --- Seed Management Subcommands ---
     seed_parser = subparsers.add_parser("seed", help="Manage fractal seeds.")
@@ -443,20 +533,20 @@ def main():
     seed_add_parser.add_argument("--y_span", type=float, required=True, help="Y-axis span (e.g., 4.0).")
     seed_add_parser.add_argument("--x_center", type=float, required=True, help="X-axis center (e.g., 0.0).")
     seed_add_parser.add_argument("--y_center", type=float, required=True, help="Y-axis center (e.g., 0.0).")
-    seed_add_parser.add_argument("--c_real", type=float, required=False, help="Real part of complex constant 'c'.")
-    seed_add_parser.add_argument("--c_imag", type=float, required=False, help="Imaginary part of complex constant 'c'.")
+    seed_add_parser.add_argument("--c_real", type=str, required=False, help="Real part of complex constant 'c'.")
+    seed_add_parser.add_argument("--c_imag", type=str, required=False, help="Imaginary part of complex constant 'c'.")
     seed_add_parser.add_argument("--bailout", type=float, required=True, help="Bailout radius (e.g., 2.0).")
     seed_add_parser.add_argument("--iterations", type=int, required=True, help="Maximum iterations (e.g., 600).")
     seed_add_parser.set_defaults(func=handle_add_seed)
 
-    # seed get
+    # seed get (now takes --seed_id as named argument)
     seed_get_parser = seed_subparsers.add_parser("get", help="Get details of a specific seed.")
-    seed_get_parser.add_argument("seed_id", type=str, help="ID of the seed to retrieve (e.g., seed_00001).")
+    seed_get_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to retrieve (e.g., seed_00001).")
     seed_get_parser.set_defaults(func=handle_get_seed)
 
-    # seed update
+    # seed update (now takes --seed_id as named argument, c_real/c_imag type is str)
     seed_update_parser = seed_subparsers.add_parser("update", help="Update fields of an existing seed.")
-    seed_update_parser.add_argument("seed_id", type=str, help="ID of the seed to update (e.g., seed_00001).")
+    seed_update_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to update (e.g., seed_00001).")
     seed_update_parser.add_argument("--type", type=str, help="Fractal type (e.g., Julia, Mandelbrot).")
     seed_update_parser.add_argument("--subtype", type=str, help="Fractal subtype (e.g., Multi-Julia).")
     seed_update_parser.add_argument("--power", type=int, help="Power of Z (e.g., 2, 8).")
@@ -464,25 +554,25 @@ def main():
     seed_update_parser.add_argument("--y_span", type=float, help="Y-axis span (e.g., 4.0).")
     seed_update_parser.add_argument("--x_center", type=float, help="X-axis center (e.g., 0.0).")
     seed_update_parser.add_argument("--y_center", type=float, help="Y-axis center (e.g., 0.0).")
-    seed_update_parser.add_argument("--c_real", type=float, help="Real part of complex constant 'c'.")
-    seed_update_parser.add_argument("--c_imag", type=float, help="Imaginary part of complex constant 'c'.")
+    seed_update_parser.add_argument("--c_real", type=str, help="Real part of complex constant 'c'.")
+    seed_update_parser.add_argument("--c_imag", type=str, help="Imaginary part of complex constant 'c'.")
     seed_update_parser.add_argument("--bailout", type=float, help="Bailout radius (e.g., 2.0).")
     seed_update_parser.add_argument("--iterations", type=int, help="Maximum iterations (e.g., 600).")
     seed_update_parser.set_defaults(func=handle_update_seed)
 
-    # seed remove
+    # seed remove (now takes --seed_id as named argument)
     seed_remove_parser = seed_subparsers.add_parser("remove", help="Move a seed to removed status.")
-    seed_remove_parser.add_argument("seed_id", type=str, help="ID of the seed to remove.")
+    seed_remove_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to remove.")
     seed_remove_parser.set_defaults(func=handle_remove_seed)
 
-    # seed restore
+    # seed restore (now takes --seed_id as named argument)
     seed_restore_parser = seed_subparsers.add_parser("restore", help="Restore a seed from removed to active status.")
-    seed_restore_parser.add_argument("seed_id", type=str, help="ID of the seed to restore.")
+    seed_restore_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to restore.")
     seed_restore_parser.set_defaults(func=handle_restore_seed)
 
-    # seed purge
+    # seed purge (now takes --seed_id as named argument)
     seed_purge_parser = seed_subparsers.add_parser("purge", help="Permanently delete a seed from removed status.")
-    seed_purge_parser.add_argument("seed_id", type=str, help="ID of the seed to purge.")
+    seed_purge_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to purge.")
     seed_purge_parser.set_defaults(func=handle_purge_seed)
     
     # --- Image Management Subcommands ---
@@ -505,9 +595,9 @@ def main():
     image_list_parser.add_argument("--resolution_filter", type=int, help="Filter by image resolution.")
     image_list_parser.set_defaults(func=handle_list_images)
 
-    # image add
+    # image add (now takes --source_filepath as named argument)
     image_add_parser = image_subparsers.add_parser("add", help="Add an existing image file to the image manager.")
-    image_add_parser.add_argument("source_filepath", type=str, help="Path to the image file to add (e.g., in staging directory).")
+    image_add_parser.add_argument("--source_filepath", type=str, required=True, help="Path to the image file to add (e.g., in staging directory).")
     image_add_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed associated with this image.")
     image_add_parser.add_argument("--colormap_name", type=str, required=True, help="Colormap used for rendering.")
     image_add_parser.add_argument("--rendering_type", type=str, required=True, help="Type of rendering (e.g., 'iterations', 'angle_map').")
@@ -515,14 +605,14 @@ def main():
     image_add_parser.add_argument("--resolution", type=int, required=True, help="Resolution of the image.")
     image_add_parser.set_defaults(func=handle_add_image)
 
-    # image get
+    # image get (now takes --image_id as named argument)
     image_get_parser = image_subparsers.add_parser("get", help="Get details of a specific image.")
-    image_get_parser.add_argument("image_id", type=str, help="ID of the image to retrieve (e.g., image_000001).")
+    image_get_parser.add_argument("--image_id", type=str, required=True, help="ID of the image to retrieve (e.g., image_000001).")
     image_get_parser.set_defaults(func=handle_get_image)
 
-    # image update
+    # image update (now takes --image_id as named argument)
     image_update_parser = image_subparsers.add_parser("update", help="Update fields of an existing image.")
-    image_update_parser.add_argument("image_id", type=str, help="ID of the image to update (e.g., image_000001).")
+    image_update_parser.add_argument("--image_id", type=str, required=True, help="ID of the image to update (e.g., image_000001).")
     image_update_parser.add_argument("--seed_id", type=str, help="New seed ID associated with this image.")
     image_update_parser.add_argument("--colormap_name", type=str, help="New colormap used for rendering.")
     image_update_parser.add_argument("--rendering_type", type=str, help="New type of rendering.")
@@ -530,24 +620,24 @@ def main():
     image_update_parser.add_argument("--resolution", type=int, help="New resolution of the image.")
     image_update_parser.set_defaults(func=handle_update_image)
 
-    # image remove
+    # image remove (now takes --image_id as named argument)
     image_remove_parser = image_subparsers.add_parser("remove", help="Move an image to removed status.")
-    image_remove_parser.add_argument("image_id", type=str, help="ID of the image to remove.")
+    image_remove_parser.add_argument("--image_id", type=str, required=True, help="ID of the image to remove.")
     image_remove_parser.set_defaults(func=handle_remove_image)
 
-    # image restore
+    # image restore (now takes --image_id as named argument)
     image_restore_parser = image_subparsers.add_parser("restore", help="Restore an image from removed to active status.")
-    image_restore_parser.add_argument("image_id", type=str, help="ID of the image to restore.")
+    image_restore_parser.add_argument("--image_id", type=str, required=True, help="ID of the image to restore.")
     image_restore_parser.set_defaults(func=handle_restore_image)
 
-    # image purge
+    # image purge (now takes --image_id as named argument)
     image_purge_parser = image_subparsers.add_parser("purge", help="Permanently delete an image from removed status.")
-    image_purge_parser.add_argument("image_id", type=str, help="ID of the image to purge.")
+    image_purge_parser.add_argument("--image_id", type=str, required=True, help="ID of the image to purge.")
     image_purge_parser.set_defaults(func=handle_purge_image)
 
-    # image render
+    # image render (now takes --seed_id as named argument)
     image_render_parser = image_subparsers.add_parser("render", help="Render a fractal image from a seed and add it to images.")
-    image_render_parser.add_argument("seed_id", type=str, help="ID of the seed to render.")
+    image_render_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to render.")
     image_render_parser.add_argument("--resolution", type=int, default=1024, help="Resolution of the rendered image (e.g., 1024).")
     image_render_parser.add_argument("--colormap", type=str, default='twilight', help="Colormap to use for rendering (e.g., 'viridis', 'magma').")
     image_render_parser.add_argument("--rendering_type", type=str, default='iterations', help="Rendering type (e.g., 'iterations', 'magnitude').")
@@ -556,16 +646,22 @@ def main():
 
 
     # --- Parse args and call handler ---
-    args = parser.parse_args()
+    # Parse the provided argv, not sys.argv directly
+    args = parser.parse_args(argv) 
     
-    # Call the appropriate handler function
-    if hasattr(args, 'func'):
-        args.func(args)
-    else:
-        # This case should ideally not be reached due to required=True on subparsers
-        # However, if it is, print help and exit cleanly.
+    # Conditional logic for --config or command
+    if args.config:
+        _run_commands_from_yaml(args.config)
+    elif args.command is None: # No command and no --config
         parser.print_help()
-        sys.exit(0) # Exit with 0 if no command is given and help is printed
+        sys.exit(1) # Exit with error code if no command is given
+    else: # A command was given
+        args.func(args)
+
 
 if __name__ == "__main__":
-    main()
+    # This block is for when the script is run directly from the command line
+    # (e.g., `python main.py --config ...` or `fex --config ...`)
+    
+    # Pass all arguments after the script name to main for parsing
+    main(argv=sys.argv[1:], load_initial_data=True)

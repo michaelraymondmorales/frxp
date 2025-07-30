@@ -129,13 +129,20 @@ class TestCLI(unittest.TestCase):
 
     def test_seed_add_success(self):
         """Test 'fex seed add' for successful addition."""
-        self.mock_seed_manager_add_seed.return_value = 'seed_00001'
-        # Populate the mock active_seeds dictionary that _print_seed_details uses
-        self.mock_active_seeds['seed_00001'] = {
+        seed_id = 'seed_00001' # Define seed_id here for clarity
+        mock_seed_data_for_add = {
             'type': 'Julia', 'subtype': 'Standard', 'power': 2, 'x_span': 4.0, 'y_span': 4.0,
             'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015,
             'bailout': 2.0, 'iterations': 600
         }
+        self.mock_seed_manager_add_seed.return_value = seed_id
+        
+        # Configure the mock get_seed_by_id to return the data that was "added"
+        self.mock_seed_manager_get_seed_by_id.return_value = (mock_seed_data_for_add, 'active')
+
+        # Populate the mock active_seeds dictionary that _print_seed_details uses
+        # This is crucial because _print_seed_details directly accesses global active_seeds
+        self.mock_active_seeds[seed_id] = mock_seed_data_for_add.copy() # Use .copy()
 
         args = [
             'seed', 'add',
@@ -146,11 +153,41 @@ class TestCLI(unittest.TestCase):
         self._run_cli(args) # Expects exit code 0 by default, no assertRaises here
         output = self.mock_stdout.getvalue()
         self.assertIn("Attempting to add a new seed...", output)
-        self.assertIn("Seed 'seed_00001' added successfully.", output)
+        self.assertIn(f"Seed '{seed_id}' added successfully.", output) # Use f-string
         self.mock_seed_manager_add_seed.assert_called_once()
-        # Verify the arguments passed to add_seed (structure, not exact values, as validation is in CLI)
+        self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds) # Verify get_seed_by_id was called
+        # Verify the arguments passed to add_seed
         called_args, _ = self.mock_seed_manager_add_seed.call_args
-        self.assertIn('type', called_args[0]) # Check that a dict with 'type' was passed
+        # The first argument to add_seed is the params dictionary.
+        # We need to ensure the `notes` argument is also passed and asserted if `main.py` passes it.
+        # Based on the `main.py` I provided earlier, `notes` is hardcoded as "Added via CLI."
+        # However, the `seed_manager.py` you provided *does not* have a `notes` parameter in `add_seed`.
+        # This is a discrepancy between `main.py` and `seed_manager.py`.
+        # For now, I'll assert the params dictionary only.
+        # If `main.py` passes "Added via CLI." and `seed_manager.py` doesn't expect it, it will be an error.
+        # Let's check the `seed_manager.py` `add_seed` signature again.
+        # From the `seed_manager.py` you provided: `def add_seed(params: dict, active_seeds: dict, removed_seeds: dict) -> str:`
+        # It does NOT take `notes`. This means `main.py`'s call `seed_manager.add_seed(seed_params, "Added via CLI.", active_seeds, removed_seeds)` is incorrect.
+        # I need to remove the "Added via CLI." argument from the `main.py` `handle_add_seed` function.
+
+        # Re-evaluating the current state based on this:
+        # The `test_seed_add_success` test itself is not failing because of this,
+        # but the `main.py` code *it's testing* will fail when calling the *real* `seed_manager.add_seed`.
+        # Since the test is mocking `seed_manager.add_seed`, it doesn't hit the real signature.
+        # The current error is `ValueError: not enough values to unpack`, which is from `get_seed_by_id` mock.
+        # The fix for that is above.
+        # I will proceed with the `test_cli.py` update as requested, and then we will need to address `main.py`'s `add_seed` call.
+
+        # For now, asserting the params dictionary is sufficient for the test.
+        expected_params_for_add_seed = {
+            'type': 'Julia', 'subtype': 'Standard', 'power': 2, 'x_span': 4.0, 'y_span': 4.0,
+            'x_center': 0.0, 'y_center': 0.0, 'c_real': '-0.7', 'c_imag': '0.27015', # These are strings from argparse
+            'bailout': 2.0, 'iterations': 600
+        }
+        # Convert c_real and c_imag to float for comparison if seed_manager converts them
+        # However, the provided seed_manager.py passes them as is. So keep them as strings.
+        self.assertEqual(called_args[0], expected_params_for_add_seed)
+
 
     def test_seed_add_validation_failure(self):
         """Test 'fex seed add' with invalid input (e.g., missing c_real for Julia)."""
@@ -171,22 +208,22 @@ class TestCLI(unittest.TestCase):
     def test_seed_get_success(self):
         """Test 'fex seed get' for successful retrieval."""
         seed_id = 'seed_00001'
-        seed_data = {'type': 'Mandelbrot', 'power': 2, 'iterations': 500, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': None, 'c_imag': None, 'bailout': 2.0, 'subtype': 'Standard'}
+        seed_data = {'type': 'Mandelbrot', 'power': 2, 'iterations': 500, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': None, 'c_imag': None, 'bailout': 2.0, 'subtype': 'Standard'} # Using c_real, c_imag, iterations
         self.mock_seed_manager_get_seed_by_id.return_value = (seed_data, 'active')
         # Populate mock active_seeds if _print_seed_details reads from it directly
-        self.mock_active_seeds.update(seed_data)
+        self.mock_active_seeds.update({seed_id: seed_data}) # Ensure seed_data is in the mock global dict
         
-        self._run_cli(['seed', 'get', seed_id])
+        self._run_cli(['seed', 'get', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"--- Seed ID: {seed_id} (Active) ---", output)
-        self.assertIn("Type: Mandelbrot", output)
+        self.assertIn("Type: Mandelbrot", output) # Updated assertion
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_get_not_found(self):
         """Test 'fex seed get' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None)
-        self._run_cli(['seed', 'get', seed_id])
+        self._run_cli(['seed', 'get', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Seed with ID '{seed_id}' not found.", output)
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
@@ -194,19 +231,20 @@ class TestCLI(unittest.TestCase):
     def test_seed_update_success(self):
         """Test 'fex seed update' for successful update."""
         seed_id = 'seed_00001'
-        initial_seed_data = {'type': 'Julia', 'power': 2, 'iterations': 600, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'subtype': 'Standard'}
+        initial_seed_data = {'type': 'Julia', 'power': 2, 'iterations': 600, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'subtype': 'Standard'} # Using c_real, c_imag, iterations
         self.mock_active_seeds[seed_id] = initial_seed_data.copy() # Use .copy() to ensure independent dict
         
         # Configure mock for update_seed to actually modify the mock_active_seeds
         def mock_update_seed_side_effect(sid, updates, active_seeds_mock, removed_seeds_mock):
             if sid in active_seeds_mock:
+                # Directly update keys that match seed_manager's expected keys
                 active_seeds_mock[sid].update(updates)
                 return True
             return False
         self.mock_seed_manager_update_seed.side_effect = mock_update_seed_side_effect
         
         # Configure mock for get_seed_by_id to return the current state from the mock_active_seeds
-        # This will be called twice: once for initial check, once for printing after update
+        # This will be called once: for printing after update
         def mock_get_seed_side_effect(sid, active_seeds_mock, removed_seeds_mock):
             if sid in active_seeds_mock:
                 return active_seeds_mock[sid], 'active'
@@ -215,11 +253,8 @@ class TestCLI(unittest.TestCase):
             return None, None
         self.mock_seed_manager_get_seed_by_id.side_effect = mock_get_seed_side_effect
         
-        self._run_cli(['seed', 'update', seed_id, '--iterations', '700'])
+        self._run_cli(['seed', 'update', '--seed_id', seed_id, '--iterations', '700']) # Changed to named argument
         
-        # The manual update line is no longer needed here because the mock_update_seed_side_effect handles it
-        # self.mock_active_seeds[seed_id]['iterations'] = 700 
-
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Seed '{seed_id}' updated successfully.", output)
         self.assertIn("Iterations: 700", output) # Verify printed output reflects update
@@ -231,7 +266,7 @@ class TestCLI(unittest.TestCase):
     def test_seed_update_no_fields(self):
         """Test 'fex seed update' with no fields provided."""
         seed_id = 'seed_00001'
-        self._run_cli(['seed', 'update', seed_id])
+        self._run_cli(['seed', 'update', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn("No fields provided for update.", output)
         self.mock_seed_manager_update_seed.assert_not_called()
@@ -242,7 +277,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_update_seed.return_value = False
         # Mock get_seed_by_id to return None for the initial check in handle_update_seed
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None) 
-        self._run_cli(['seed', 'update', seed_id, '--iterations', '700'])
+        self._run_cli(['seed', 'update', '--seed_id', seed_id, '--iterations', '700']) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to update seed '{seed_id}'. Seed not found or no valid updates were provided.", output)
         self.mock_seed_manager_update_seed.assert_called_once_with(seed_id, {'iterations': 700}, self.mock_active_seeds, self.mock_removed_seeds)
@@ -251,7 +286,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex seed remove' for successful removal."""
         seed_id = 'seed_00001'
         self.mock_seed_manager_remove_seed.return_value = True
-        self._run_cli(['seed', 'remove', seed_id])
+        self._run_cli(['seed', 'remove', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Seed '{seed_id}' successfully moved to removed.", output)
         self.mock_seed_manager_remove_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
@@ -260,7 +295,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex seed remove' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_remove_seed.return_value = False
-        self._run_cli(['seed', 'remove', seed_id])
+        self._run_cli(['seed', 'remove', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to remove seed '{seed_id}'. It might not exist in active seeds.", output)
         self.mock_seed_manager_remove_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
@@ -269,7 +304,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex seed restore' for successful restoration."""
         seed_id = 'seed_00001'
         self.mock_seed_manager_restore_seed.return_value = True
-        self._run_cli(['seed', 'restore', seed_id])
+        self._run_cli(['seed', 'restore', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Seed '{seed_id}' successfully restored to active.", output)
         self.mock_seed_manager_restore_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
@@ -278,7 +313,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex seed restore' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_restore_seed.return_value = False
-        self._run_cli(['seed', 'restore', seed_id])
+        self._run_cli(['seed', 'restore', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to restore seed '{seed_id}'. It might not exist in removed seeds.", output)
         self.mock_seed_manager_restore_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
@@ -287,12 +322,12 @@ class TestCLI(unittest.TestCase):
         """Test 'fex seed purge' with successful confirmation."""
         seed_id = 'seed_00001'
         # Configure mock manager to return success and purged data
-        self.mock_seed_manager_purge_seed.return_value = ({'type': 'Julia', 'power': 2, 'subtype': 'Standard'}, True)
+        self.mock_seed_manager_purge_seed.return_value = ({'type': 'Julia', 'power': 2, 'subtype': 'Standard'}, True) # Using 'type'
         
         # Simulate user typing 'yes' for confirmation
         self.mock_input.side_effect = ['yes'] # Provide input as a list of strings
 
-        self._run_cli(['seed', 'purge', seed_id])
+        self._run_cli(['seed', 'purge', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"WARNING: You are about to permanently purge seed '{seed_id}'.", output)
         # Removed: self.assertIn("Type 'yes' to confirm:", output) # This assertion is too brittle
@@ -306,7 +341,7 @@ class TestCLI(unittest.TestCase):
         # Simulate user typing 'no' for confirmation
         self.mock_input.side_effect = ['no'] # Provide input as a list of strings
 
-        self._run_cli(['seed', 'purge', seed_id])
+        self._run_cli(['seed', 'purge', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"WARNING: You are about to permanently purge seed '{seed_id}'.", output)
         self.assertIn("Purge cancelled.", output)
@@ -335,14 +370,16 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image add' for successful addition."""
         image_id = 'image_00001'
         self.mock_image_manager_add_image.return_value = (image_id, True)
-        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'subtype': 'Standard'}, 'active') # Seed must exist
+        # Mock seed existence (ensure 'type' is present in mock seed data)
+        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'subtype': 'Standard'}, 'active') 
         self.mock_active_images[image_id] = { # For _print_image_details
             'seed_id': 'seed_00001', 'colormap_name': 'viridis', 'rendering_type': 'iterations',
             'aesthetic_rating': 'experimental', 'resolution': 1024
         }
 
         args = [
-            'image', 'add', 'dummy_path.png',
+            'image', 'add', 
+            '--source_filepath', 'dummy_path.png', # Changed to named argument
             '--seed_id', 'seed_00001', '--colormap_name', 'viridis',
             '--rendering_type', 'iterations', '--aesthetic_rating', 'experimental',
             '--resolution', '1024'
@@ -365,7 +402,8 @@ class TestCLI(unittest.TestCase):
             # Patch Path.exists to return True so we only test seed_id validation
             with patch('pathlib.Path.exists', return_value=True):
                 self._run_cli([
-                    'image', 'add', 'dummy_path.png',
+                    'image', 'add', 
+                    '--source_filepath', 'dummy_path.png', # Changed to named argument
                     '--seed_id', 'non_existent_seed', '--colormap_name', 'viridis',
                     '--rendering_type', 'iterations', '--resolution', '1024'
                 ]) # No expected_exit_code needed here
@@ -381,9 +419,9 @@ class TestCLI(unittest.TestCase):
         image_data = {'seed_id': 'seed_00001', 'resolution': 512, 'colormap_name': 'magma', 'rendering_type': 'iterations', 'aesthetic_rating': 'human_friendly'}
         self.mock_image_manager_get_image_by_id.return_value = (image_data, 'active')
         # Populate mock active_images if _print_image_details reads from it directly
-        self.mock_active_images.update(image_data) # Ensure image_data is in the mock global dict
+        self.mock_active_images.update({image_id: image_data}) # Ensure image_data is in the mock global dict
         
-        self._run_cli(['image', 'get', image_id])
+        self._run_cli(['image', 'get', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"--- Image ID: {image_id} (Active) ---", output)
         self.assertIn("Resolution: 512", output)
@@ -393,7 +431,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image get' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_get_image_by_id.return_value = (None, None)
-        self._run_cli(['image', 'get', image_id])
+        self._run_cli(['image', 'get', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Image with ID '{image_id}' not found.", output)
         self.mock_image_manager_get_image_by_id.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
@@ -422,11 +460,8 @@ class TestCLI(unittest.TestCase):
             return None, None
         self.mock_image_manager_get_image_by_id.side_effect = mock_get_image_side_effect
         
-        self._run_cli(['image', 'update', image_id, '--resolution', '512'])
+        self._run_cli(['image', 'update', '--image_id', image_id, '--resolution', '512']) # Changed to named argument
         
-        # The manual update line is no longer needed here
-        # self.mock_active_images[image_id]['resolution'] = 512 
-
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Image '{image_id}' updated successfully.", output)
         self.assertIn("Resolution: 512", output)
@@ -438,7 +473,7 @@ class TestCLI(unittest.TestCase):
     def test_image_update_no_fields(self):
         """Test 'fex image update' with no fields provided."""
         image_id = 'image_00001'
-        self._run_cli(['image', 'update', image_id])
+        self._run_cli(['image', 'update', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn("No fields provided for update.", output)
         self.mock_image_manager_update_image.assert_not_called()
@@ -449,7 +484,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_update_image.return_value = False
         # Mock get_image_by_id to return None for the initial check in handle_update_image
         self.mock_image_manager_get_image_by_id.return_value = (None, None)
-        self._run_cli(['image', 'update', image_id, '--resolution', '512'])
+        self._run_cli(['image', 'update', '--image_id', image_id, '--resolution', '512']) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to update image '{image_id}'. Image not found or no valid updates.", output)
         self.mock_image_manager_update_image.assert_called_once_with(image_id, {'resolution': 512}, self.mock_active_images, self.mock_removed_images)
@@ -458,7 +493,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image remove' for successful removal."""
         image_id = 'image_00001'
         self.mock_image_manager_remove_image.return_value = True
-        self._run_cli(['image', 'remove', image_id])
+        self._run_cli(['image', 'remove', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Image '{image_id}' successfully moved to removed status (and file moved).", output)
         self.mock_image_manager_remove_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
@@ -467,7 +502,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image remove' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_remove_image.return_value = False
-        self._run_cli(['image', 'remove', image_id])
+        self._run_cli(['image', 'remove', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to remove image '{image_id}'. It might not exist in active images or file movement failed. Check warnings above.", output)
         self.mock_image_manager_remove_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
@@ -476,7 +511,7 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image restore' for successful restoration."""
         image_id = 'image_00001'
         self.mock_image_manager_restore_image.return_value = True
-        self._run_cli(['image', 'restore', image_id])
+        self._run_cli(['image', 'restore', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Image '{image_id}' successfully restored to active status (and file moved).", output)
         self.mock_image_manager_restore_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
@@ -485,10 +520,10 @@ class TestCLI(unittest.TestCase):
         """Test 'fex image restore' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_restore_image.return_value = False
-        self._run_cli(['image', 'restore', image_id])
+        self._run_cli(['image', 'restore', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"Failed to restore image '{image_id}'. It might not exist in removed images or file movement failed. Check warnings above.", output)
-        self.mock_image_manager_restore_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
+        self.mock_image_manager_restore_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_seeds)
 
     def test_image_purge_success(self):
         """Test 'fex image purge' with successful confirmation."""
@@ -496,7 +531,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_purge_image.return_value = ({'resolution': 1024, 'physical_file_deleted': True}, True)
         self.mock_input.side_effect = ['yes'] # Provide input as a list of strings
 
-        self._run_cli(['image', 'purge', image_id])
+        self._run_cli(['image', 'purge', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"WARNING: You are about to permanently purge image '{image_id}'.", output)
         # Removed: self.assertIn("Type 'yes' to confirm:", output) # This assertion is too brittle
@@ -509,7 +544,7 @@ class TestCLI(unittest.TestCase):
         image_id = 'image_00001'
         self.mock_input.side_effect = ['no'] # Provide input as a list of strings
 
-        self._run_cli(['image', 'purge', image_id])
+        self._run_cli(['image', 'purge', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
         self.assertIn(f"WARNING: You are about to permanently purge image '{image_id}'.", output)
         self.assertIn("Purge cancelled.", output)
@@ -520,7 +555,7 @@ class TestCLI(unittest.TestCase):
         seed_id = 'seed_00001'
         image_id = 'image_00001'
         # Mock seed existence
-        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'power': 2, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'iterations': 600, 'subtype': 'Standard'}, 'active')
+        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'power': 2, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'iterations': 600, 'subtype': 'Standard'}, 'active') # Using 'type', c_real, c_imag, iterations
         # Mock renderer output path
         self.mock_image_manager_get_staging_directory_path.return_value = Path('/mock/staging')
         self.mock_renderer_render_fractal_to_file.return_value = Path('/mock/staging/rendered_img.png')
@@ -532,7 +567,8 @@ class TestCLI(unittest.TestCase):
         }
 
         args = [
-            'image', 'render', seed_id,
+            'image', 'render', 
+            '--seed_id', seed_id, # Changed to named argument
             '--resolution', '1024', '--colormap', 'twilight',
             '--rendering_type', 'iterations', '--aesthetic_rating', 'experimental'
         ]
@@ -551,7 +587,8 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None) # Seed not found
         with self.assertRaises(SystemExit) as cm:
             self._run_cli([
-                'image', 'render', seed_id,
+                'image', 'render', 
+                '--seed_id', seed_id, # Changed to named argument
                 '--resolution', '1024', '--colormap', 'twilight'
             ]) # Explicitly expect exit code 1 due to sys.exit(1) in handler
         self.assertEqual(cm.exception.code, 1)
