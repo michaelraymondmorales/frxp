@@ -95,7 +95,7 @@ def handle_add_seed(args):
         print("\nError: Invalid input for adding seed:")
         for error in errors:
             print(f"- {error}")
-        sys.exit(1)
+        sys.exit(1) # Exit with error code
         
     seed_params = {
         'type': args.type,
@@ -140,7 +140,12 @@ def handle_update_seed(args):
 
     if seed_manager.update_seed(args.seed_id, updates, active_seeds, removed_seeds):
         print(f"Seed '{args.seed_id}' updated successfully.")
-        _print_seed_details(args.seed_id, active_seeds[args.seed_id], 'active')
+        # Re-fetch the updated data to ensure _print_seed_details gets the latest state
+        updated_seed_data, _ = seed_manager.get_seed_by_id(args.seed_id, active_seeds, removed_seeds)
+        if updated_seed_data:
+            _print_seed_details(args.seed_id, updated_seed_data, 'active')
+        else:
+            print(f"Warning: Seed '{args.seed_id}' was updated but could not be retrieved for printing details.")
     else:
         print(f"Failed to update seed '{args.seed_id}'. Seed not found or no valid updates were provided.")
 
@@ -272,6 +277,7 @@ def handle_add_image(args):
         _print_image_details(new_image_id, active_images[new_image_id], 'active')
     else:
         print(f"Image '{new_image_id}' metadata added, but file movement failed. Check warnings above.")
+    # Removed sys.exit(1) from here, as it's a success path
 
 def handle_get_image(args):
     """Handles the 'image get' command."""
@@ -297,7 +303,12 @@ def handle_update_image(args):
 
     if image_manager.update_image(args.image_id, updates, active_images, removed_images):
         print(f"Image '{args.image_id}' updated successfully.")
-        _print_image_details(args.image_id, active_images[args.image_id], 'active')
+        # Re-fetch the updated data to ensure _print_image_details gets the latest state
+        updated_image_data, _ = image_manager.get_image_by_id(args.image_id, active_images, removed_images)
+        if updated_image_data:
+            _print_image_details(args.image_id, updated_image_data, 'active')
+        else:
+            print(f"Warning: Image '{args.image_id}' was updated but could not be retrieved for printing details.")
     else:
         print(f"Failed to update image '{args.image_id}'. Image not found or no valid updates.")
 
@@ -350,7 +361,7 @@ def handle_render_image(args):
     
     if not seed_data or status == 'removed':
         print(f"Error: Seed '{args.seed_id}' not found or is removed. Cannot render.")
-        return
+        sys.exit(1) # Exit with error code
 
     # Get staging directory from image_manager
     staging_dir = image_manager.get_staging_directory_path()
@@ -379,14 +390,14 @@ def handle_render_image(args):
         )
 
         if move_success:
-            print(f"Image '{new_image_id}' rendered and added successfully.")
+            print(f"Image '{new_image_id}' record added and file moved successfully.")
             _print_image_details(new_image_id, active_images[new_image_id], 'active')
         else:
             print(f"Image '{new_image_id}' metadata added, but file movement failed. Check warnings.")
 
     except Exception as e:
         print(f"An error occurred during rendering or adding image: {e}")
-        # Consider more specific error handling based on renderer's potential exceptions
+        sys.exit(1) # Exit with error code
 
 # --- Main CLI Setup ---
 
@@ -551,7 +562,10 @@ def main():
     if hasattr(args, 'func'):
         args.func(args)
     else:
+        # This case should ideally not be reached due to required=True on subparsers
+        # However, if it is, print help and exit cleanly.
         parser.print_help()
+        sys.exit(0) # Exit with 0 if no command is given and help is printed
 
 if __name__ == "__main__":
     main()
