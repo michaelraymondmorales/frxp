@@ -158,34 +158,11 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds) # Verify get_seed_by_id was called
         # Verify the arguments passed to add_seed
         called_args, _ = self.mock_seed_manager_add_seed.call_args
-        # The first argument to add_seed is the params dictionary.
-        # We need to ensure the `notes` argument is also passed and asserted if `main.py` passes it.
-        # Based on the `main.py` I provided earlier, `notes` is hardcoded as "Added via CLI."
-        # However, the `seed_manager.py` you provided *does not* have a `notes` parameter in `add_seed`.
-        # This is a discrepancy between `main.py` and `seed_manager.py`.
-        # For now, I'll assert the params dictionary only.
-        # If `main.py` passes "Added via CLI." and `seed_manager.py` doesn't expect it, it will be an error.
-        # Let's check the `seed_manager.py` `add_seed` signature again.
-        # From the `seed_manager.py` you provided: `def add_seed(params: dict, active_seeds: dict, removed_seeds: dict) -> str:`
-        # It does NOT take `notes`. This means `main.py`'s call `seed_manager.add_seed(seed_params, "Added via CLI.", active_seeds, removed_seeds)` is incorrect.
-        # I need to remove the "Added via CLI." argument from the `main.py` `handle_add_seed` function.
-
-        # Re-evaluating the current state based on this:
-        # The `test_seed_add_success` test itself is not failing because of this,
-        # but the `main.py` code *it's testing* will fail when calling the *real* `seed_manager.add_seed`.
-        # Since the test is mocking `seed_manager.add_seed`, it doesn't hit the real signature.
-        # The current error is `ValueError: not enough values to unpack`, which is from `get_seed_by_id` mock.
-        # The fix for that is above.
-        # I will proceed with the `test_cli.py` update as requested, and then we will need to address `main.py`'s `add_seed` call.
-
-        # For now, asserting the params dictionary is sufficient for the test.
         expected_params_for_add_seed = {
             'type': 'Julia', 'subtype': 'Standard', 'power': 2, 'x_span': 4.0, 'y_span': 4.0,
-            'x_center': 0.0, 'y_center': 0.0, 'c_real': '-0.7', 'c_imag': '0.27015', # These are strings from argparse
+            'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015,
             'bailout': 2.0, 'iterations': 600
         }
-        # Convert c_real and c_imag to float for comparison if seed_manager converts them
-        # However, the provided seed_manager.py passes them as is. So keep them as strings.
         self.assertEqual(called_args[0], expected_params_for_add_seed)
 
 

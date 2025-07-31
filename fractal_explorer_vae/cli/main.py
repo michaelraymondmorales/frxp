@@ -25,7 +25,11 @@ def _print_seed_details(seed_id: str, seed_data: dict, status: str):
     for key, value in seed_data.items():
         # Special formatting for c_real and c_imag
         if key == 'c_real' or key == 'c_imag':
-            print(f"  {key.replace('_', ' ').capitalize()}: {value:.10f}" if value is not None else f"  {key.replace('_', ' ').capitalize()}: None")
+            # Ensure value is float or None before formatting
+            if isinstance(value, (float, int)):
+                print(f"  {key.replace('_', ' ').capitalize()}: {value:.10f}")
+            else: # Handle None or other non-numeric types gracefully
+                print(f"  {key.replace('_', ' ').capitalize()}: {value}")
         elif key in ["x_center", "y_center", "x_span", "y_span", "bailout"] and isinstance(value, (float, int)):
             print(f"  {key.replace('_', ' ').capitalize()}: {value:.10f}")
         else:
@@ -79,18 +83,20 @@ def handle_add_seed(args):
     if not isinstance(args.bailout, (int, float)) or args.bailout <= 0:
         errors.append(f"Invalid bailout: {args.bailout}. Must be a positive number.")
 
-    # Conditional validation for c_real/c_imag (only required for Julia or Multi-Julia)
+    # Conditional validation and conversion for c_real/c_imag (only required for Julia or Multi-Julia)
+    converted_c_real = None
+    converted_c_imag = None
+
     if args.type in ['Julia', 'Multi-Julia']:
         if args.c_real is None or args.c_imag is None:
              errors.append(f"For '{args.type}' sets, --c_real and --c_imag are required.")
-        # If provided, attempt conversion to float for validation
         else:
             try:
-                float(args.c_real)
+                converted_c_real = float(args.c_real)
             except ValueError:
                 errors.append(f"Invalid c_real value: '{args.c_real}'. Must be a valid number.")
             try:
-                float(args.c_imag)
+                converted_c_imag = float(args.c_imag)
             except ValueError:
                 errors.append(f"Invalid c_imag value: '{args.c_imag}'. Must be a valid number.")
     
@@ -98,6 +104,20 @@ def handle_add_seed(args):
     elif args.type in ['Mandelbrot', 'Multi-Mandelbrot']:
         if args.c_real is not None or args.c_imag is not None:
             print(f"Warning: c_real and c_imag are usually ignored for {args.type} sets and derived from pixel coordinates.")
+        # For Mandelbrot, ensure c_real and c_imag are explicitly None if not provided
+        # or if they are provided, convert them to float if they are valid numbers.
+        # This makes sure they are not passed as strings to the renderer.
+        if args.c_real is not None:
+            try:
+                converted_c_real = float(args.c_real)
+            except ValueError:
+                errors.append(f"Invalid c_real value: '{args.c_real}'. Must be a valid number.")
+        if args.c_imag is not None:
+            try:
+                converted_c_imag = float(args.c_imag)
+            except ValueError:
+                errors.append(f"Invalid c_imag value: '{args.c_imag}'. Must be a valid number.")
+
 
     # If any errors, print them and exit
     if errors:
@@ -115,10 +135,10 @@ def handle_add_seed(args):
         'y_span': args.y_span,
         'x_center': args.x_center,
         'y_center': args.y_center,
-        'c_real': args.c_real, # Passed as string/None, seed_manager expects this
-        'c_imag': args.c_imag, # Passed as string/None, seed_manager expects this
+        'c_real': converted_c_real, # Now passing converted float or None
+        'c_imag': converted_c_imag, # Now passing converted float or None
         'bailout': args.bailout,
-        'iterations': args.iterations # Passed as is, seed_manager expects this
+        'iterations': args.iterations
     }
     
     new_id = seed_manager.add_seed(seed_params, active_seeds, removed_seeds)
@@ -148,7 +168,7 @@ def handle_update_seed(args):
             # For c_real and c_imag, attempt conversion for validation before passing
             if key == 'c_real' or key == 'c_imag':
                 try:
-                    updates[key] = float(value) # Convert to float here for validation
+                    updates[key] = float(value) # Convert to float here for storage
                 except ValueError:
                     print(f"Error: Invalid {key} value: '{value}'. Must be a valid number.")
                     sys.exit(1) # Exit if invalid number
@@ -441,9 +461,6 @@ def _run_commands_from_yaml(config_path: Path):
         sys.exit(1)
 
     print(f"\n--- Executing commands from YAML: {config_path} ---")
-    
-    # Load initial data once for the entire batch of commands
-    _load_initial_data() 
 
     for i, cmd_def in enumerate(config['commands']):
         print(f"\n--- Running Command {i+1}: {cmd_def.get('command')} {cmd_def.get('subcommand')} ---")
