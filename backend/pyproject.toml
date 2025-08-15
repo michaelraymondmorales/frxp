@@ -1,5 +1,5 @@
 [project]
-name = "fractal-explorer-vae"
+name = "frxp"
 version = "0.1.0"
 description = "A CLI for managing and exploring fractal images."
 readme = "README.md"
@@ -18,9 +18,9 @@ dependencies = [
 ]
 
 [project.scripts]
-fex = "fractal_explorer_vae.cli.main:main"
+frxp = "frxp.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["fractal_explorer_vae*"]
+include = ["frxp*"]
 exclude = ["data*", "notebooks*", "rendered_fractals*", "tests*"]

@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 from pathlib import Path
-from fractal_explorer_vae.core.data_managers import seed_manager
+from frxp.core.data_managers import seed_manager
 
 class TestSeedManager(unittest.TestCase):
 

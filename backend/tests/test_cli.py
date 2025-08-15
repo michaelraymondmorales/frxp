@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 # Import the main CLI entry point function
-# Note: We import main directly to call it, but we'll mock its internal dependencies
-from fractal_explorer_vae.cli.main import main, _load_initial_data, active_seeds, removed_seeds, active_images, removed_images
+# Note: We import main directly to call it, but mock its internal dependencies
+from frxp.cli.main import main, _load_initial_data, active_seeds, removed_seeds, active_images, removed_images
 
 class TestCLI(unittest.TestCase):
 
@@ -31,10 +31,10 @@ class TestCLI(unittest.TestCase):
 
         # 3. Patch the global data stores and manager load functions
         # Use new_callable=dict to ensure they are fresh, empty dicts for each test
-        self.patcher_active_seeds = patch('fractal_explorer_vae.cli.main.active_seeds', new_callable=dict)
-        self.patcher_removed_seeds = patch('fractal_explorer_vae.cli.main.removed_seeds', new_callable=dict)
-        self.patcher_active_images = patch('fractal_explorer_vae.cli.main.active_images', new_callable=dict)
-        self.patcher_removed_images = patch('fractal_explorer_vae.cli.main.removed_images', new_callable=dict)
+        self.patcher_active_seeds = patch('frxp.cli.main.active_seeds', new_callable=dict)
+        self.patcher_removed_seeds = patch('frxp.cli.main.removed_seeds', new_callable=dict)
+        self.patcher_active_images = patch('frxp.cli.main.active_images', new_callable=dict)
+        self.patcher_removed_images = patch('frxp.cli.main.removed_images', new_callable=dict)
         
         # Start the patches for global dictionaries
         self.mock_active_seeds = self.patcher_active_seeds.start()
@@ -43,29 +43,29 @@ class TestCLI(unittest.TestCase):
         self.mock_removed_images = self.patcher_removed_images.start()
 
         # Mock the _load_initial_data function so it doesn't try to load real files
-        self.mock_load_initial_data = patch('fractal_explorer_vae.cli.main._load_initial_data').start()
+        self.mock_load_initial_data = patch('frxp.cli.main._load_initial_data').start()
         self.mock_load_initial_data.return_value = None # It just prints, doesn't return anything significant
 
         # 4. Patch manager functions that the CLI handlers call
         # We need to control what these functions return to test CLI logic
-        self.mock_seed_manager_add_seed = patch('fractal_explorer_vae.cli.main.seed_manager.add_seed').start()
-        self.mock_seed_manager_get_seed_by_id = patch('fractal_explorer_vae.cli.main.seed_manager.get_seed_by_id').start()
-        self.mock_seed_manager_update_seed = patch('fractal_explorer_vae.cli.main.seed_manager.update_seed').start()
-        self.mock_seed_manager_remove_seed = patch('fractal_explorer_vae.cli.main.seed_manager.remove_seed').start()
-        self.mock_seed_manager_restore_seed = patch('fractal_explorer_vae.cli.main.seed_manager.restore_seed').start()
-        self.mock_seed_manager_purge_seed = patch('fractal_explorer_vae.cli.main.seed_manager.purge_seed').start()
-        self.mock_seed_manager_list_seeds = patch('fractal_explorer_vae.cli.main.seed_manager.list_seeds').start()
+        self.mock_seed_manager_add_seed = patch('frxp.cli.main.seed_manager.add_seed').start()
+        self.mock_seed_manager_get_seed_by_id = patch('frxp.cli.main.seed_manager.get_seed_by_id').start()
+        self.mock_seed_manager_update_seed = patch('frxp.cli.main.seed_manager.update_seed').start()
+        self.mock_seed_manager_remove_seed = patch('frxp.cli.main.seed_manager.remove_seed').start()
+        self.mock_seed_manager_restore_seed = patch('frxp.cli.main.seed_manager.restore_seed').start()
+        self.mock_seed_manager_purge_seed = patch('frxp.cli.main.seed_manager.purge_seed').start()
+        self.mock_seed_manager_list_seeds = patch('frxp.cli.main.seed_manager.list_seeds').start()
 
-        self.mock_image_manager_add_image = patch('fractal_explorer_vae.cli.main.image_manager.add_image').start()
-        self.mock_image_manager_get_image_by_id = patch('fractal_explorer_vae.cli.main.image_manager.get_image_by_id').start()
-        self.mock_image_manager_update_image = patch('fractal_explorer_vae.cli.main.image_manager.update_image').start()
-        self.mock_image_manager_remove_image = patch('fractal_explorer_vae.cli.main.image_manager.remove_image').start()
-        self.mock_image_manager_restore_image = patch('fractal_explorer_vae.cli.main.image_manager.restore_image').start()
-        self.mock_image_manager_purge_image = patch('fractal_explorer_vae.cli.main.image_manager.purge_image').start()
-        self.mock_image_manager_list_images = patch('fractal_explorer_vae.cli.main.image_manager.list_images').start()
-        self.mock_image_manager_get_staging_directory_path = patch('fractal_explorer_vae.cli.main.image_manager.get_staging_directory_path').start()
+        self.mock_image_manager_add_image = patch('frxp.cli.main.image_manager.add_image').start()
+        self.mock_image_manager_get_image_by_id = patch('frxp.cli.main.image_manager.get_image_by_id').start()
+        self.mock_image_manager_update_image = patch('frxp.cli.main.image_manager.update_image').start()
+        self.mock_image_manager_remove_image = patch('frxp.cli.main.image_manager.remove_image').start()
+        self.mock_image_manager_restore_image = patch('frxp.cli.main.image_manager.restore_image').start()
+        self.mock_image_manager_purge_image = patch('frxp.cli.main.image_manager.purge_image').start()
+        self.mock_image_manager_list_images = patch('frxp.cli.main.image_manager.list_images').start()
+        self.mock_image_manager_get_staging_directory_path = patch('frxp.cli.main.image_manager.get_staging_directory_path').start()
 
-        self.mock_renderer_render_fractal_to_file = patch('fractal_explorer_vae.cli.main.renderer.render_fractal_to_file').start()
+        self.mock_renderer_render_fractal_to_file = patch('frxp.cli.main.renderer.render_fractal_to_file').start()
         
         # Reset sys.argv for each test
         self.original_argv = sys.argv
@@ -95,7 +95,7 @@ class TestCLI(unittest.TestCase):
 
 
     def test_help_command(self):
-        """Test the fex --help command."""
+        """Test the frxp --help command."""
         # argparse calls sys.exit(0) for --help, so we expect SystemExit with code 0
         with self.assertRaises(SystemExit) as cm:
             self._run_cli(['--help'])
@@ -110,7 +110,7 @@ class TestCLI(unittest.TestCase):
     # --- Seed Command Tests ---
 
     def test_seed_list_active(self):
-        """Test 'fex seed list' to list active seeds."""
+        """Test 'frxp seed list' to list active seeds."""
         # Configure mock manager to return some data
         mock_seed_data = {'seed_00001': {'type': 'Julia', 'power': 2, 'iterations': 600, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'subtype': 'Standard'}}
         self.mock_seed_manager_list_seeds.return_value = mock_seed_data
@@ -128,7 +128,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_list_seeds.assert_called_once_with(self.mock_active_seeds, self.mock_removed_seeds, 'active')
 
     def test_seed_add_success(self):
-        """Test 'fex seed add' for successful addition."""
+        """Test 'frxp seed add' for successful addition."""
         seed_id = 'seed_00001' # Define seed_id here for clarity
         mock_seed_data_for_add = {
             'type': 'Julia', 'subtype': 'Standard', 'power': 2, 'x_span': 4.0, 'y_span': 4.0,
@@ -167,7 +167,7 @@ class TestCLI(unittest.TestCase):
 
 
     def test_seed_add_validation_failure(self):
-        """Test 'fex seed add' with invalid input (e.g., missing c_real for Julia)."""
+        """Test 'frxp seed add' with invalid input (e.g., missing c_real for Julia)."""
         # Expect sys.exit(1) due to validation error
         with self.assertRaises(SystemExit) as cm:
             self._run_cli([
@@ -183,7 +183,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_add_seed.assert_not_called() # Manager should not be called on validation failure
 
     def test_seed_get_success(self):
-        """Test 'fex seed get' for successful retrieval."""
+        """Test 'frxp seed get' for successful retrieval."""
         seed_id = 'seed_00001'
         seed_data = {'type': 'Mandelbrot', 'power': 2, 'iterations': 500, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': None, 'c_imag': None, 'bailout': 2.0, 'subtype': 'Standard'} # Using c_real, c_imag, iterations
         self.mock_seed_manager_get_seed_by_id.return_value = (seed_data, 'active')
@@ -197,7 +197,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_get_not_found(self):
-        """Test 'fex seed get' when seed is not found."""
+        """Test 'frxp seed get' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None)
         self._run_cli(['seed', 'get', '--seed_id', seed_id]) # Changed to named argument
@@ -206,7 +206,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_update_success(self):
-        """Test 'fex seed update' for successful update."""
+        """Test 'frxp seed update' for successful update."""
         seed_id = 'seed_00001'
         initial_seed_data = {'type': 'Julia', 'power': 2, 'iterations': 600, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'subtype': 'Standard'} # Using c_real, c_imag, iterations
         self.mock_active_seeds[seed_id] = initial_seed_data.copy() # Use .copy() to ensure independent dict
@@ -241,7 +241,7 @@ class TestCLI(unittest.TestCase):
 
 
     def test_seed_update_no_fields(self):
-        """Test 'fex seed update' with no fields provided."""
+        """Test 'frxp seed update' with no fields provided."""
         seed_id = 'seed_00001'
         self._run_cli(['seed', 'update', '--seed_id', seed_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
@@ -249,7 +249,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_update_seed.assert_not_called()
 
     def test_seed_update_not_found(self):
-        """Test 'fex seed update' when seed is not found."""
+        """Test 'frxp seed update' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_update_seed.return_value = False
         # Mock get_seed_by_id to return None for the initial check in handle_update_seed
@@ -260,7 +260,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_update_seed.assert_called_once_with(seed_id, {'iterations': 700}, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_remove_success(self):
-        """Test 'fex seed remove' for successful removal."""
+        """Test 'frxp seed remove' for successful removal."""
         seed_id = 'seed_00001'
         self.mock_seed_manager_remove_seed.return_value = True
         self._run_cli(['seed', 'remove', '--seed_id', seed_id]) # Changed to named argument
@@ -269,7 +269,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_remove_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_remove_not_found(self):
-        """Test 'fex seed remove' when seed is not found."""
+        """Test 'frxp seed remove' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_remove_seed.return_value = False
         self._run_cli(['seed', 'remove', '--seed_id', seed_id]) # Changed to named argument
@@ -278,7 +278,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_remove_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_restore_success(self):
-        """Test 'fex seed restore' for successful restoration."""
+        """Test 'frxp seed restore' for successful restoration."""
         seed_id = 'seed_00001'
         self.mock_seed_manager_restore_seed.return_value = True
         self._run_cli(['seed', 'restore', '--seed_id', seed_id]) # Changed to named argument
@@ -287,7 +287,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_restore_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_restore_not_found(self):
-        """Test 'fex seed restore' when seed is not found."""
+        """Test 'frxp seed restore' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_restore_seed.return_value = False
         self._run_cli(['seed', 'restore', '--seed_id', seed_id]) # Changed to named argument
@@ -296,7 +296,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_restore_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_purge_success(self):
-        """Test 'fex seed purge' with successful confirmation."""
+        """Test 'frxp seed purge' with successful confirmation."""
         seed_id = 'seed_00001'
         # Configure mock manager to return success and purged data
         self.mock_seed_manager_purge_seed.return_value = ({'type': 'Julia', 'power': 2, 'subtype': 'Standard'}, True) # Using 'type'
@@ -313,7 +313,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_purge_seed.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_seed_purge_cancelled(self):
-        """Test 'fex seed purge' when user cancels."""
+        """Test 'frxp seed purge' when user cancels."""
         seed_id = 'seed_00001'
         # Simulate user typing 'no' for confirmation
         self.mock_input.side_effect = ['no'] # Provide input as a list of strings
@@ -327,7 +327,7 @@ class TestCLI(unittest.TestCase):
     # --- Image Command Tests ---
 
     def test_image_list_active(self):
-        """Test 'fex image list' to list active images."""
+        """Test 'frxp image list' to list active images."""
         mock_image_data = {'image_00001': {'seed_id': 'seed_00001', 'resolution': 1024, 'colormap_name': 'viridis', 'rendering_type': 'iterations', 'aesthetic_rating': 'human_friendly'}}
         self.mock_image_manager_list_images.return_value = (mock_image_data, {})
         # Populate the mock active_images dictionary that _print_image_details uses
@@ -344,7 +344,7 @@ class TestCLI(unittest.TestCase):
         )
 
     def test_image_add_success(self):
-        """Test 'fex image add' for successful addition."""
+        """Test 'frxp image add' for successful addition."""
         image_id = 'image_00001'
         self.mock_image_manager_add_image.return_value = (image_id, True)
         # Mock seed existence (ensure 'type' is present in mock seed data)
@@ -372,7 +372,7 @@ class TestCLI(unittest.TestCase):
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with('seed_00001', self.mock_active_seeds, self.mock_removed_seeds)
 
     def test_image_add_validation_failure(self):
-        """Test 'fex image add' with invalid input (e.g., missing seed_id)."""
+        """Test 'frxp image add' with invalid input (e.g., missing seed_id)."""
         # Expect sys.exit(1) due to validation error
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None) # Seed does not exist
         with self.assertRaises(SystemExit) as cm:
@@ -391,7 +391,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_add_image.assert_not_called()
 
     def test_image_get_success(self):
-        """Test 'fex image get' for successful retrieval."""
+        """Test 'frxp image get' for successful retrieval."""
         image_id = 'image_00001'
         image_data = {'seed_id': 'seed_00001', 'resolution': 512, 'colormap_name': 'magma', 'rendering_type': 'iterations', 'aesthetic_rating': 'human_friendly'}
         self.mock_image_manager_get_image_by_id.return_value = (image_data, 'active')
@@ -405,7 +405,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_get_image_by_id.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_get_not_found(self):
-        """Test 'fex image get' when image is not found."""
+        """Test 'frxp image get' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_get_image_by_id.return_value = (None, None)
         self._run_cli(['image', 'get', '--image_id', image_id]) # Changed to named argument
@@ -414,7 +414,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_get_image_by_id.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_update_success(self):
-        """Test 'fex image update' for successful update."""
+        """Test 'frxp image update' for successful update."""
         image_id = 'image_00001'
         initial_image_data = {'seed_id': 'seed_00001', 'resolution': 1024, 'colormap_name': 'viridis', 'rendering_type': 'iterations', 'aesthetic_rating': 'experimental'}
         self.mock_active_images[image_id] = initial_image_data.copy() # Use .copy()
@@ -448,7 +448,7 @@ class TestCLI(unittest.TestCase):
 
 
     def test_image_update_no_fields(self):
-        """Test 'fex image update' with no fields provided."""
+        """Test 'frxp image update' with no fields provided."""
         image_id = 'image_00001'
         self._run_cli(['image', 'update', '--image_id', image_id]) # Changed to named argument
         output = self.mock_stdout.getvalue()
@@ -456,7 +456,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_update_image.assert_not_called()
 
     def test_image_update_not_found(self):
-        """Test 'fex image update' when image is not found."""
+        """Test 'frxp image update' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_update_image.return_value = False
         # Mock get_image_by_id to return None for the initial check in handle_update_image
@@ -467,7 +467,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_update_image.assert_called_once_with(image_id, {'resolution': 512}, self.mock_active_images, self.mock_removed_images)
 
     def test_image_remove_success(self):
-        """Test 'fex image remove' for successful removal."""
+        """Test 'frxp image remove' for successful removal."""
         image_id = 'image_00001'
         self.mock_image_manager_remove_image.return_value = True
         self._run_cli(['image', 'remove', '--image_id', image_id]) # Changed to named argument
@@ -476,7 +476,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_remove_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_remove_not_found(self):
-        """Test 'fex image remove' when image is not found."""
+        """Test 'frxp image remove' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_remove_image.return_value = False
         self._run_cli(['image', 'remove', '--image_id', image_id]) # Changed to named argument
@@ -485,7 +485,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_remove_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_restore_success(self):
-        """Test 'fex image restore' for successful restoration."""
+        """Test 'frxp image restore' for successful restoration."""
         image_id = 'image_00001'
         self.mock_image_manager_restore_image.return_value = True
         self._run_cli(['image', 'restore', '--image_id', image_id]) # Changed to named argument
@@ -494,7 +494,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_restore_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_restore_not_found(self):
-        """Test 'fex image restore' when image is not found."""
+        """Test 'frxp image restore' when image is not found."""
         image_id = 'image_999999'
         self.mock_image_manager_restore_image.return_value = False
         self._run_cli(['image', 'restore', '--image_id', image_id]) # Changed to named argument
@@ -503,7 +503,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_restore_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_seeds)
 
     def test_image_purge_success(self):
-        """Test 'fex image purge' with successful confirmation."""
+        """Test 'frxp image purge' with successful confirmation."""
         image_id = 'image_00001'
         self.mock_image_manager_purge_image.return_value = ({'resolution': 1024, 'physical_file_deleted': True}, True)
         self.mock_input.side_effect = ['yes'] # Provide input as a list of strings
@@ -517,7 +517,7 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_purge_image.assert_called_once_with(image_id, self.mock_active_images, self.mock_removed_images)
 
     def test_image_purge_cancelled(self):
-        """Test 'fex image purge' when user cancels."""
+        """Test 'frxp image purge' when user cancels."""
         image_id = 'image_00001'
         self.mock_input.side_effect = ['no'] # Provide input as a list of strings
 
@@ -528,38 +528,72 @@ class TestCLI(unittest.TestCase):
         self.mock_image_manager_purge_image.assert_not_called()
 
     def test_image_render_success(self):
-        """Test 'fex image render' for successful rendering and addition."""
+        """Test 'frxp image render' for successful rendering and addition of multiple images."""
         seed_id = 'seed_00001'
-        image_id = 'image_00001'
+
         # Mock seed existence
-        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'power': 2, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'iterations': 600, 'subtype': 'Standard'}, 'active') # Using 'type', c_real, c_imag, iterations
-        # Mock renderer output path
-        self.mock_image_manager_get_staging_directory_path.return_value = Path('/mock/staging')
-        self.mock_renderer_render_fractal_to_file.return_value = Path('/mock/staging/rendered_img.png')
-        # Mock image manager add success
-        self.mock_image_manager_add_image.return_value = (image_id, True)
-        self.mock_active_images[image_id] = { # For _print_image_details
-            'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'iterations',
-            'aesthetic_rating': 'experimental', 'resolution': 1024
-        }
+        self.mock_seed_manager_get_seed_by_id.return_value = ({'type': 'Julia', 'power': 2, 'x_span': 4.0, 'y_span': 4.0, 'x_center': 0.0, 'y_center': 0.0, 'c_real': -0.7, 'c_imag': 0.27015, 'bailout': 2.0, 'iterations': 600, 'subtype': 'Standard'}, 'active')
+
+        # Mock the renderer output to return a list of dictionaries instead of a single Path object.
+        # This mirrors the change in the main renderer.
+        self.mock_renderer_render_fractal_to_file.return_value = [
+            {'filepath': Path('/mock/staging/img1.png'), 'rendering_type': 'iterations', 'colormap': 'twilight'},
+            {'filepath': Path('/mock/staging/img2.png'), 'rendering_type': 'magnitudes', 'colormap': 'twilight'},
+            {'filepath': Path('/mock/staging/img3.png'), 'rendering_type': 'angles', 'colormap': 'twilight'}
+        ]
+
+        # The image manager now adds multiple images, so we need to mock a sequence of return values.
+        from unittest.mock import call
+        self.mock_image_manager_add_image.side_effect = [
+            ('image_00001', True),
+            ('image_00002', True),
+            ('image_00003', True)
+        ]
+
+        # Mock active images for the final check, mirroring the three new images
+        self.mock_active_images.update({
+            'image_00001': {'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'iterations', 'aesthetic_rating': 'experimental', 'resolution': 1024},
+            'image_00002': {'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'magnitudes', 'aesthetic_rating': 'experimental', 'resolution': 1024},
+            'image_00003': {'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'angles', 'aesthetic_rating': 'experimental', 'resolution': 1024}
+        })
 
         args = [
-            'image', 'render', 
-            '--seed_id', seed_id, # Changed to named argument
-            '--resolution', '1024', '--colormap', 'twilight',
-            '--rendering_type', 'iterations', '--aesthetic_rating', 'experimental'
+            'image', 'render',
+            '--seed_id', seed_id,
+            '--resolution', '1024',
+            '--colormaps', 'twilight',
+            '--rendering_types', 'all',
+            '--aesthetic_rating', 'experimental'
         ]
         self._run_cli(args) # Expects exit code 0 by default
         output = self.mock_stdout.getvalue()
-        self.assertIn(f"Attempting to render image for seed ID: {seed_id}...", output)
-        # Updated assertion message to match actual output from main.py
-        self.assertIn(f"Image '{image_id}' record added and file moved successfully.", output)
+
+        # Update assertions to check for all three images
+        self.assertIn(f"Attempting to render image(s) for seed ID: {seed_id}...", output)
+        self.assertIn("Image 'image_00001' record added and file moved successfully.", output)
+        self.assertIn("Image 'image_00002' record added and file moved successfully.", output)
+        self.assertIn("Image 'image_00003' record added and file moved successfully.", output)
+
         self.mock_seed_manager_get_seed_by_id.assert_called_once_with(seed_id, self.mock_active_seeds, self.mock_removed_seeds)
-        self.mock_renderer_render_fractal_to_file.assert_called_once()
-        self.mock_image_manager_add_image.assert_called_once()
+
+        # Assert that the renderer was called with the correct arguments
+        self.mock_renderer_render_fractal_to_file.assert_called_once_with(
+            self.mock_seed_manager_get_seed_by_id.return_value[0],
+            self.mock_image_manager_get_staging_directory_path.return_value,
+            resolution=1024,
+            colormap_names=['twilight'],
+            rendering_types=['all']
+        )
+        # Use assert_has_calls to verify the sequence of add_image calls for each image
+        expected_calls = [
+            call({'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'iterations', 'aesthetic_rating': 'experimental', 'resolution': 1024}, Path('/mock/staging/img1.png'), self.mock_active_images, self.mock_removed_images),
+            call({'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'magnitudes', 'aesthetic_rating': 'experimental', 'resolution': 1024}, Path('/mock/staging/img2.png'), self.mock_active_images, self.mock_removed_images),
+            call({'seed_id': seed_id, 'colormap_name': 'twilight', 'rendering_type': 'angles', 'aesthetic_rating': 'experimental', 'resolution': 1024}, Path('/mock/staging/img3.png'), self.mock_active_images, self.mock_removed_images)
+        ]
+        self.mock_image_manager_add_image.assert_has_calls(expected_calls)
 
     def test_image_render_seed_not_found(self):
-        """Test 'fex image render' when seed is not found."""
+        """Test 'frxp image render' when seed is not found."""
         seed_id = 'seed_99999'
         self.mock_seed_manager_get_seed_by_id.return_value = (None, None) # Seed not found
         with self.assertRaises(SystemExit) as cm:

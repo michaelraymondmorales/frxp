@@ -1,10 +1,10 @@
 import sys
+import yaml
 import argparse
 from pathlib import Path
-import yaml
-from fractal_explorer_vae.cli import renderer
-from fractal_explorer_vae.core.data_managers import seed_manager
-from fractal_explorer_vae.core.data_managers import image_manager
+from frxp.cli import renderer
+from frxp.core.data_managers import seed_manager
+from frxp.core.data_managers import image_manager
  
  # --- Global Data Stores (Loaded once at startup.) ---
 active_seeds, removed_seeds = {}, {}
@@ -397,7 +397,7 @@ def handle_purge_image(args):
 
 def handle_render_image(args):
     """Handles the 'render-image' command."""
-    print(f"Attempting to render image for seed ID: {args.seed_id}...")
+    print(f"Attempting to render image(s) for seed ID: {args.seed_id}...")
     seed_data, status = seed_manager.get_seed_by_id(args.seed_id, active_seeds, removed_seeds)
     
     if not seed_data or status == 'removed':
@@ -408,33 +408,37 @@ def handle_render_image(args):
     staging_dir = image_manager.get_staging_directory_path()
 
     try:
-        # Call the renderer to generate and save the image to staging
-        output_filepath = renderer.render_fractal_to_file(
+        # Call the renderer to generate and save the image(s) to staging
+        # This now returns a list of dictionaries, one for each rendered image.
+        generated_images = renderer.render_fractal_to_file(
             seed_data,
             staging_dir,
             resolution=args.resolution,
-            colormap_name=args.colormap # Pass colormap name
+            colormap_names=args.colormaps,
+            rendering_types=args.rendering_types
         )
 
-        # Prepare metadata for image_manager
-        image_params = {
-            'seed_id': args.seed_id,
-            'colormap_name': args.colormap,
-            'rendering_type': args.rendering_type, 
-            'aesthetic_rating': args.aesthetic_rating, 
-            'resolution': args.resolution
-        }
-        
-        # Add image to manager, which handles moving from staging to active
-        new_image_id, move_success = image_manager.add_image(
-            image_params, output_filepath, active_images, removed_images
-        )
+        # Loop through each generated image and add it to the image manager
+        for img_details in generated_images:
+            # Prepare metadata for image_manager
+            image_params = {
+                'seed_id': args.seed_id,
+                'colormap_name': img_details['colormap'],  # Use colormap from the renderer's return
+                'rendering_type': img_details['rendering_type'], # Use rendering_type from the renderer's return
+                'aesthetic_rating': args.aesthetic_rating, 
+                'resolution': args.resolution
+            }
+            
+            # Add image to manager, which handles moving from staging to active
+            new_image_id, move_success = image_manager.add_image(
+                image_params, img_details['filepath'], active_images, removed_images
+            )
 
-        if move_success:
-            print(f"Image '{new_image_id}' record added and file moved successfully.")
-            _print_image_details(new_image_id, active_images[new_image_id], 'active')
-        else:
-            print(f"Image '{new_image_id}' metadata added, but file movement failed. Check warnings.")
+            if move_success:
+                print(f"\nImage '{new_image_id}' record added and file moved successfully.")
+                _print_image_details(new_image_id, active_images[new_image_id], 'active')
+            else:
+                print(f"\nImage '{new_image_id}' metadata added, but file movement failed. Check warnings.")
 
     except Exception as e:
         print(f"An error occurred during rendering or adding image: {e}")
@@ -477,10 +481,17 @@ def _run_commands_from_yaml(config_path: Path):
         cmd_argv = [command, subcommand]
         for arg_name, arg_value in args_dict.items():
             # Crucial: Only append arguments if their value is not None.
-            # This prevents 'None' string from being passed for optional args.
             if arg_value is not None:
                 cmd_argv.append(f"--{arg_name}")
-                cmd_argv.append(str(arg_value)) # Convert to string for argparse
+                
+                # Check if the value is a list
+                if isinstance(arg_value, list):
+                    # If it's a list, append each item as a separate argument
+                    for item in arg_value:
+                        cmd_argv.append(str(item))
+                else:
+                    # If it's not a list, append the single value as a string
+                    cmd_argv.append(str(arg_value))
         
         try:
             # Call the main function with the specific command's argv
@@ -656,8 +667,8 @@ def main(argv=None, load_initial_data=True): # Modified signature
     image_render_parser = image_subparsers.add_parser("render", help="Render a fractal image from a seed and add it to images.")
     image_render_parser.add_argument("--seed_id", type=str, required=True, help="ID of the seed to render.")
     image_render_parser.add_argument("--resolution", type=int, default=1024, help="Resolution of the rendered image (e.g., 1024).")
-    image_render_parser.add_argument("--colormap", type=str, default='twilight', help="Colormap to use for rendering (e.g., 'viridis', 'magma').")
-    image_render_parser.add_argument("--rendering_type", type=str, default='iterations', help="Rendering type (e.g., 'iterations', 'magnitude').")
+    image_render_parser.add_argument("--colormaps", default=['twilight'], nargs='*', help="Colormap to use for rendering (e.g., 'viridis', 'magma').")
+    image_render_parser.add_argument("--rendering_types", default=['iterations'], nargs='*', help="Rendering type (e.g., 'iterations', 'magnitude').")
     image_render_parser.add_argument("--aesthetic_rating", type=str, default='experimental', help="Aesthetic rating for the generated image.")
     image_render_parser.set_defaults(func=handle_render_image)
 
@@ -678,7 +689,7 @@ def main(argv=None, load_initial_data=True): # Modified signature
 
 if __name__ == "__main__":
     # This block is for when the script is run directly from the command line
-    # (e.g., `python main.py --config ...` or `fex --config ...`)
+    # (e.g., `python main.py --config ...` or `frxp --config ...`)
     
     # Pass all arguments after the script name to main for parsing
     main(argv=sys.argv[1:], load_initial_data=True)
