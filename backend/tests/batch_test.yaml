@@ -5,29 +5,29 @@ commands:
       type: Mandelbrot
       subtype: Standard
       power: 2
-      x_span: 8.2
-      y_span: 8.2
-      x_center: 0.0
+      x_span: 2
+      y_span: 2
+      x_center: -0.5
       y_center: 0.0
       c_real: null
       c_imag: null
       bailout: 4.0
-      iterations: 2400
+      iterations: 1024
 
   - command: seed
     subcommand: add
     args:
-      type: Mandelbrot
+      type: Julia
       subtype: Standard
-      power: 1234
-      x_span: 8.2
-      y_span: 8.2
+      power: 2
+      x_span: 2
+      y_span: 2
       x_center: 0
       y_center: 0.0
-      c_real: null
-      c_imag: null
+      c_real: -0.8
+      c_imag: -1.115
       bailout: 4.0
-      iterations: 2400
+      iterations: 1024
 
   # Render an image from the first seed (assuming it gets ID like seed_00001)
   - command: image

@@ -126,3 +126,27 @@ Why np.arctan2 is Recommended (Specifically for Fractals/Complex Numbers):
         The (−π,π] range is ideal for representing angles in a continuous way around the origin, which is exactly what's needed for the behavior of complex numbers in fractal iterations.
 
 In summary, while np.arctan is useful for calculating angles from known slopes, np.arctan2 is the gold standard for finding the angle of a point (x,y) or a complex number x+yi because it correctly handles all quadrants and edge cases, providing the true and unambiguous angle. For fractal generation, its use is non-negotiable for mathematical correctness.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We first calculate the magnitude and angle of the current complex number Zn​:
+
+    rz​=∣Zn​∣=zreal2​+zimag2​​
+
+    θz​=arg(Zn​)=arctan2(zimag​,zreal​)
+
+Next, we use these polar coordinates to compute ZnP−1​:
+
+    rpower​=rzP−1​
+
+    θpower​=(P−1)⋅θz​
+
+    zpower_real​=rpower​⋅cos(θpower​)
+
+    zpower_imag​=rpower​⋅sin(θpower​)
+
+Finally, we use these results to update the derivative:
+
+    dCdZn+1​​real​=P⋅(zpower_real​⋅dzreal​−zpower_imag​⋅dzimag​)+1
+
+    dCdZn+1​​imag​=P⋅(zpower_real​⋅dzimag​+zpower_imag​⋅dzreal​)

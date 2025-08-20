@@ -193,20 +193,41 @@ def render_fractal_to_file(seed_data: dict,
         fractal_calc_args['c_real'] = c_real
         fractal_calc_args['c_imag'] = c_imag
         
-        iterations_map, magnitudes_map, angles_map = fractal_function(**fractal_calc_args)
+        map_tuple = fractal_function(**fractal_calc_args)
 
     elif seed_data['type'] in ['Mandelbrot', 'Multi-Mandelbrot']:
-        iterations_map, magnitudes_map, angles_map = fractal_function(**fractal_calc_args)
+        map_tuple = fractal_function(**fractal_calc_args)
         
     else:
         # This 'else' should not be reached if FRACTAL_RENDER_FUNCTIONS is comprehensive
         raise ValueError(f"Unhandled fractal type in renderer: {seed_data['type']}")
+
+    # Unpack the tuple and create a dictionary from the returned maps.
+    maps = {
+        'iterations_map': map_tuple[0],
+        'normalized_iterations_map': map_tuple[1],
+        'magnitudes_map': map_tuple[2],
+        'initial_angles_map': map_tuple[3],
+        'final_angles_map': map_tuple[4],
+        'distance_map': map_tuple[5],
+        'final_derivative_magnitude_map': map_tuple[6],
+        'min_distance_to_trap_map': map_tuple[7],
+        'min_distance_iteration_map': map_tuple[8],
+        'derivative_bailout_map': map_tuple[9],
+        'final_Z_real_map': map_tuple[10],
+        'final_Z_imag_map': map_tuple[11],
+        'final_derivative_real_map': map_tuple[12],
+        'final_derivative_imag_map': map_tuple[13],
+        'bailout_location_real_map': map_tuple[14],
+        'bailout_location_imag_map': map_tuple[15],
+        'final_Z_real_at_fixed_iteration_map': map_tuple[16],
+        'final_Z_imag_at_fixed_iteration_map': map_tuple[17]}
     
     # Normalize the raw maps for rendering
     norm_iterations_map, norm_magnitudes_map, norm_angles_map = normalize_maps.normalize_maps(
-                                                                iterations_map,
-                                                                magnitudes_map,
-                                                                angles_map,
+                                                                maps['iterations_map'],
+                                                                maps['magnitudes_map'],
+                                                                maps['final_angles_map'],
                                                                 seed_data['iterations'])
 
     # Create the output directory if it doesn't exist
