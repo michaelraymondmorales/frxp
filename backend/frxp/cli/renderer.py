@@ -6,7 +6,7 @@ from pathlib import Path
 from cmap import Catalog, Colormap
 from frxp.core import lch_color
 from frxp.core import fractal_calcs
-from frxp.core import normalize_maps
+from frxp.core import normalize_map
 from frxp.core import coord_generator
 from frxp.core import coord_converter
 
@@ -224,11 +224,9 @@ def render_fractal_to_file(seed_data: dict,
         'final_Z_imag_at_fixed_iteration_map': map_tuple[17]}
     
     # Normalize the raw maps for rendering
-    norm_iterations_map, norm_magnitudes_map, norm_angles_map = normalize_maps.normalize_maps(
-                                                                maps['iterations_map'],
-                                                                maps['magnitudes_map'],
-                                                                maps['final_angles_map'],
-                                                                seed_data['iterations'])
+    norm_iterations_map = normalize_map.normalize_map(maps['iterations_map'], 'iterations_map', seed_data['iterations'])
+    norm_magnitudes_map = normalize_map.normalize_map(maps['magnitudes_map'], 'magnitudes_map', seed_data['iterations'])
+    norm_angles_map = normalize_map.normalize_map(maps['final_angles_map'], 'final_angles_map', seed_data['iterations'])
 
     # Create the output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)

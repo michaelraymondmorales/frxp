@@ -407,6 +407,12 @@ def julia_numba(
         fixed_iteration (int): The iteration at which to capture Z and derivative values.
         trap_params (tuple): A tuple for advanced trap parameters. The first element is an
             integer representing the trap type. The tuple should always have 7 elements.
+            - (0, ...): No trap (default).
+            - (1, x, y, 0.0, 0.0, 0.0, 0.0): Point trap at (x, y).
+            - (2, x1, y1, x2, y2, 0.0, 0.0): Line trap from (x1, y1) to (x2, y2).
+            - (3, x, y, radius, 0.0, 0.0, 0.0): Circle trap at (x, y) with a given radius.
+            - (4, x, y, side, 0.0, 0.0, 0.0): Square trap at (x, y) with a given side length.
+            - (5, x1, y1, x2, y2, x3, y3): Triangle trap with vertices (x1, y1), (x2, y2), and (x3, y3).
 
     Returns:
         tuple: A tuple of 2D numpy arrays representing different data maps.
@@ -630,29 +636,3 @@ def julia_numba(
             bailout_location_imag_map,
             final_Z_real_at_fixed_iteration_map,
             final_Z_imag_at_fixed_iteration_map)
-
-@njit
-def standardize_map(distance_map: np.ndarray) -> np.ndarray:
-    """
-    Returns a normalized and logarithmically compressed version
-    of the input distance map using a vectorized approach.
-    """
-    # Create a copy to avoid modifying the original array
-    log_map = np.copy(distance_map)
-
-    # Apply a logarithmic transformation to the entire array.
-    # We use log1p to handle values close to zero gracefully.
-    log_map = np.log1p(log_map)
-    
-    # Find the new min and max values after the log transform.
-    min_val = np.min(log_map)
-    max_val = np.max(log_map)
-
-    # Handle the edge case where the map is constant.
-    if max_val - min_val == 0:
-        return np.zeros_like(distance_map)
-
-    # Normalize the entire array to a 0-1 range.
-    normalized_map = (log_map - min_val) / (max_val - min_val)
-
-    return normalized_map
