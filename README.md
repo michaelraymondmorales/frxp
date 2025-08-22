@@ -191,5 +191,5 @@ This project is licensed under the [MIT License](https://www.google.com/search?q
 
 Michael Raymond Morales  
 E-mail: michaelraymondmorales@gmail.com  
-Project Link: https://github.com/michaelraymondmorales/FractalExplorerVAE  
+Project Link: https://github.com/michaelraymondmorales/frxp  
 LinkedIn Profile: https://linkedin.com/in/raymond-morales-1727023
