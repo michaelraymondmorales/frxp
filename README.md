@@ -1,6 +1,6 @@
 # **frxp**
 
-![FractalExplorerVAE Banner](docs/anglemap.jpg)
+![FractalExplorerVAE Banner](docs/images/anglemap.jpg)
 
 ## **Table of Contents**
 
