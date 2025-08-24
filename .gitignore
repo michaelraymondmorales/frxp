@@ -10,3 +10,4 @@ active_fractal_seeds.json
 removed_fractal_seeds.json
 *.log
 *.egg-info/
+dump.rdb
