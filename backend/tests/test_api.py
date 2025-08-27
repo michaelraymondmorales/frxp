@@ -176,9 +176,9 @@ def run_test_case(test_name: str, params: dict) -> bool:
         print(f"Failed to send calculation request: {e}")
         return False
     
-    if result.get('status') == 'cached':
+    if response.status_code == 200:
         print(result.get('message')) 
-    elif result.get('status') == 'calculating':
+    elif response.status_code == 202:
         print(f"Task queued with ID: {task_id}") 
         # Step 2: Poll for initial calculation task completion
         print("Waiting for initial fractal calculation to complete...")

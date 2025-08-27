@@ -1,8 +1,8 @@
 import hashlib
-#import json
 import redis
 from flask import Flask, request, jsonify, send_file, Response
 from flask_cors import CORS
+from flask_compress import Compress
 from celery.result import AsyncResult
 from celery_app import celery_app
 from celery_worker import calculate_fractal, process_and_save_png_map
@@ -10,6 +10,7 @@ from celery_worker import calculate_fractal, process_and_save_png_map
 # Create the Flask application instance.
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
+Compress(app)
 
 # Initialize the Redis client. This client is used by the main API server to check the cache.
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -65,7 +66,7 @@ def calculate_map():
             return jsonify({
                 "status": "cached",
                 "message": "The fractal maps for these parameters already exist in the cache."
-            })
+            }), 200
 
         # Start the calculation task
         result = calculate_fractal.apply_async(
@@ -78,7 +79,7 @@ def calculate_map():
             "status": "calculating",
             "task_id": result.id,
             "message": "Calculation queued successfully."
-        })
+        }), 202
 
     except Exception as e:
         print(f"An error occurred: {e}")

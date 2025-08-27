@@ -152,11 +152,11 @@ def calculate_fractal(self,
       
         # Loop through the tuple and save each raw map to Redis.
         for i, map_name in enumerate(maps):
-            map_array = map_tuple[i]
+            norm_map_array_64 = normalize_map.normalize_map(map_tuple[i], map_name, iterations, fixed_iteration)
+            norm_map_array_32 = norm_map_array_64.astype(np.float32)
             # Convert NumPy array to a compressed byte string.
-            map_bytes = map_array.astype(np.float64).tobytes()
-            compressed_data = gzip.compress(map_bytes)
-            
+            map_bytes = norm_map_array_32.tobytes()
+            compressed_data = gzip.compress(map_bytes)      
             # Store the raw, compressed data in Redis with an expiration time (e.g., 24 hours).
             redis_client.set(f'{main_cache_key}_{map_name}_raw', compressed_data, ex=86400) 
 
@@ -190,20 +190,16 @@ def process_and_save_png_map(self: Task,
         if not cached_raw_data:
             raise ValueError("Raw map data not found in cache.")
         
-        # Decompress and reshape the raw data
+        # Decompress and reshape the pre normalized raw data
         decompressed_data = gzip.decompress(cached_raw_data)
-        map_array = np.frombuffer(decompressed_data, dtype=np.float64)
-        map_array = map_array.reshape(resolution, resolution)
-
-        # Normalize the map to a [0, 1] range
-        norm_map_array = normalize_map.normalize_map(map_array, map_name, iterations, fixed_iteration)
+        norm_map_array = np.frombuffer(decompressed_data, dtype=np.float32)
+        norm_map_array = norm_map_array.reshape(resolution, resolution)
         norm_map_array = np.flipud(norm_map_array)
-        # Convert the normalized array to an 8-bit image and save to buffer
+        # Convert the pre normalized array to an 8-bit image and save to buffer
         img = Image.fromarray((norm_map_array * 255).astype(np.uint8))
         img_io = io.BytesIO()
         img.save(img_io, 'PNG')
-        img_io.seek(0)
-        
+        img_io.seek(0)      
         # Cache the newly generated PNG and set an expiration time
         png_cache_key = f'{main_cache_key}_{map_name}_png'
         redis_client.set(png_cache_key, img_io.getvalue(), ex=86400)
