@@ -11,3 +11,4 @@ removed_fractal_seeds.json
 *.log
 *.egg-info/
 dump.rdb
+**/node_modules
