@@ -1,9 +1,45 @@
 import Frxp3D from './Frxp3D';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from "react-router-dom";
+import { PLATEAUS_AND_VALLEYS } from './sceneConfig';
 import { createFractalMountains } from './noiseUtils';
-// The main application component.
-// It fetches fractal data from the API and manages the UI state.
+
+/**
+ * @typedef {Object} FractalParams
+ * @property {string} fractal_type - The type of fractal (e.g., 'Mandelbrot', 'Julia').
+ * @property {number} x_center - The real component of the center point for the visualization.
+ * @property {number} y_center - The imaginary component of the center point for the visualization.
+ * @property {number} x_span - The width of the viewport in the complex plane.
+ * @property {number} y_span - The height of the viewport in the complex plane.
+ * @property {number} iterations - The maximum number of iterations for the fractal escape-time algorithm.
+ * @property {number} power - The power coefficient for the fractal equation.
+ * @property {number} resolution - The N x N pixel resolution of the generated map.
+ * @property {number} bailout - The bailout radius squared.
+ * @property {number} fixed_iteration - A specific iteration count used for certain coloring methods.
+ * @property {number} trap_type - The type of geometric trap used for distance estimation.
+ * @property {number} trap_x1 - X coordinate of trap point 1.
+ * @property {number} trap_y1 - Y coordinate of trap point 1.
+ * @property {number} trap_x2 - X coordinate of trap point 2.
+ * @property {number} trap_y2 - Y coordinate of trap point 2.
+ * @property {number} trap_x3 - X coordinate of trap point 3.
+ * @property {number} trap_y3 - Y coordinate of trap point 3.
+ */
+
+/**
+ * @typedef {Object} LoadedFractalData
+ * @property {number[][]} combinedHeightMap - The final 2D height map array combining fractal distance and noise.
+ * @property {number[][]} normalizedIterationsMap - The 2D array of normalized iteration counts.
+ * @property {HTMLImageElement} colorMapImage - The loaded Image object for coloring the terrain.
+ */
+
+/**
+ * App is the root component responsible for initializing the application,
+ * managing global state, fetching fractal data from the API, processing the data (adding noise),
+ * and passing the final configuration to the 3D visualization component (Frxp3D).
+ * It reads initial parameters from the URL search query.
+ * @component
+ * @returns {JSX.Element} The Frxp3D visualization component or a loading indicator.
+ */
 const App = () => {
 
     // State variables to hold the current status message and the fractal data.
@@ -13,6 +49,8 @@ const App = () => {
 
     // --- API Configuration ---
     const API_URL = 'http://localhost:5000';
+
+    /** @type {FractalParams} */
     const FRACTAL_PARAMS = {
         fractal_type: queryParams.fractal_type || 'Mandelbrot',
         x_center: parseFloat(queryParams.x_center) || -0.7436438,
@@ -32,8 +70,15 @@ const App = () => {
         trap_x3: parseFloat(queryParams.trap_x3) || -1.0,
         trap_y3: parseFloat(queryParams.trap_y3) || -1.5
      };
-    // (3, 2.0, 0.0, -1.0, 1.5, -1.0, -1.5)
-    // A helper function to convert a 1D array to a 2D grid
+
+    /**
+     * Converts a flat (1D) array of data points into a 2D grid/array.
+     * This is necessary because the API returns map data as a single continuous buffer.
+     * @param {Float32Array|number[]} flatArray - The 1D array of data (row by row).
+     * @param {number} width - The number of columns (N).
+     * @param {number} height - The number of rows (N).
+     * @returns {number[][]} The 2D grid array (height x width).
+     */
     const createGridFromFlatArray = (flatArray, width, height) => {
         const grid = [];
         for (let i = 0; i < height; i++) {
@@ -46,7 +91,15 @@ const App = () => {
         return grid;
     };
 
-    // --- New reusable function to fetch and process a single map ---
+    /**
+     * Fetches a raw (Float32Array) fractal map (e.g., distance or iteration data) from the API.
+     * It handles Gzip decompression if the data is compressed and includes caching status logging.
+     * @async
+     * @param {string} queryString - The URL query string containing fractal parameters.
+     * @param {string} mapName - The name of the map to fetch (e.g., 'distance_map').
+     * @returns {Promise<Float32Array>} A promise that resolves to the 1D Float32Array of the map data.
+     * @throws {Error} Throws an error if the network request fails or the map cannot be downloaded.
+     */
     const fetchFractalMap = async (queryString, mapName) => {
         let mapResponse = await fetch(`${API_URL}/get_map?${queryString}&map_name=${mapName}&map_type=raw`);
         if (!mapResponse.ok) {
@@ -79,6 +132,15 @@ const App = () => {
         return data;
     };
 
+    /**
+     * Fetches a PNG image map from the API.
+     * It handles asynchronous task polling (status 202) if the map needs to be calculated first.
+     * @async
+     * @param {string} queryString - The URL query string containing fractal parameters.
+     * @param {string} mapName - The name of the map to fetch (e.g., 'distance_map').
+     * @returns {Promise<Blob>} A promise that resolves to a Blob object containing the PNG image data.
+     * @throws {Error} Throws an error if the calculation fails or polling exceeds max attempts.
+     */
     const fetchFractalImg = async (queryString, mapName) => {
         let mapResponse = await fetch(`${API_URL}/get_map?${queryString}&map_name=${mapName}&map_type=png`);
         if (mapResponse.status === 200) {
@@ -111,7 +173,18 @@ const App = () => {
         return imageBlob;
     };
 
-    // --- Core Data Loading Function (now simplified) ---
+    /**
+     * Orchestrates the entire data loading and processing pipeline.
+     * 1. Initiates the map calculation on the API server, polling if necessary.
+     * 2. Fetches the raw distance map and raw normalized iteration map data.
+     * 3. Loads the required color map image asset.
+     * 4. Converts raw 1D data into 2D grids.
+     * 5. Applies fBM noise generation (Simplex Noise) to the distance map.
+     * 6. Sets the final processed data into the component state (`fractalData`).
+     * @async
+     * @returns {Promise<void>}
+     * @throws {Error} Throws errors encountered during API calls, polling, or data processing.
+     */
     const loadFractalData = async () => {
         try {
             const queryString = new URLSearchParams(FRACTAL_PARAMS).toString();
@@ -161,83 +234,23 @@ const App = () => {
                 });
             }
 
-            // Now, we can call the reusable function for each map we need.
+            // Call the reusable function for each map needed
             const [
                 distanceMapData,
                 normalizedIterationsMapData,
-                minDistanceIterationMapData,
-                finalZRealMapData,
-                finalZImagMapData,
-                finalDerivativeMagnitudeMapData,
-                finalZRealAtFixedIterationMapData,
                 colorMapImage
-                //derivativeBailoutBlob, // A Blob is used for png
             ] = await Promise.all([
                 fetchFractalMap(queryString, 'distance_map'),
                 fetchFractalMap(queryString, 'normalized_iterations_map'),
-                fetchFractalMap(queryString, 'min_distance_iteration_map'),
-                fetchFractalMap(queryString, 'final_Z_real_map'),
-                fetchFractalMap(queryString, 'final_Z_imag_map'),
-                fetchFractalMap(queryString, 'final_derivative_magnitude_map'),
-                fetchFractalMap(queryString, 'final_Z_real_at_fixed_iteration_map'),
-                loadImage('assets/color-maps/badlands_cosine_color_map_6.png')
-                //fetchFractalImg(queryString, 'derivative_bailout_map')
+                loadImage('assets/color-maps/badlands_color_map.png')
             ]);
 
             // Convert the 1D arrays to 2D grids
             const resolution = FRACTAL_PARAMS.resolution;
             const distanceMap = createGridFromFlatArray(distanceMapData, resolution, resolution);
             const normalizedIterationsMap = createGridFromFlatArray(normalizedIterationsMapData, resolution, resolution);
-            const minDistanceIterationMap = createGridFromFlatArray(minDistanceIterationMapData, resolution, resolution);
-            const finalZRealMap = createGridFromFlatArray(finalZRealMapData, resolution, resolution);
-            const finalZImagMap = createGridFromFlatArray(finalZImagMapData, resolution, resolution);
-            const finalDerivativeMagnitudeMap = createGridFromFlatArray(finalDerivativeMagnitudeMapData, resolution, resolution);
-            const finalZRealAtFixedIterationMap = createGridFromFlatArray(finalZRealAtFixedIterationMapData, resolution, resolution);
-            // Convert png blob into img url
-            //const derivativeBailoutMap = URL.createObjectURL(derivativeBailoutBlob);
 
-            // A set of parameters for a "Jagged Peaks" terrain.
-            const JAGGED_PEAKS_PARAMS = {
-                baseNoiseScale: 0.0005,
-                baseNoiseOctaves: 4,
-                baseNoisePersistence: 0.4,
-                baseNoiseLacunarity: 2.0,
-                baseNoiseWeight: 0.5,
-                detailNoiseScale: 0.005,
-                detailNoiseOctaves: 8,
-                detailNoisePersistence: 0.5,
-                detailNoiseLacunarity: 2.2,
-                detailNoiseWeight: 0.6
-                };
-
-            // A set of parameters for a "Rolling Hills" terrain.
-            const ROLLING_HILLS_PARAMS = {
-                baseNoiseScale: 0.0005,
-                baseNoiseOctaves: 3,
-                baseNoisePersistence: 0.6,
-                baseNoiseLacunarity: 2.0,
-                baseNoiseWeight: 0.8,
-                detailNoiseScale: 0.005,
-                detailNoiseOctaves: 6,
-                detailNoisePersistence: 0.5,
-                detailNoiseLacunarity: 2.0,
-                detailNoiseWeight: 0.4
-                };
-            
-            const PLATEAUS_AND_VALLEYS = {
-                baseNoiseScale: 0.0005,
-                baseNoiseOctaves: 4,
-                baseNoisePersistence: 0.7,
-                baseNoiseLacunarity: 2.0,
-                baseNoiseWeight: 0.7,
-                detailNoiseScale: 0.005,
-                detailNoiseOctaves: 5,
-                detailNoisePersistence: 0.6,
-                detailNoiseLacunarity: 2.0,
-                detailNoiseWeight: 0.5
-                };
-
-            // --- New Step: Generate the final heightmap with fBM noise ---
+            // --- Generate the final heightmap with fBM noise ---
             console.log("Generating mountain terrain with Simplex noise...");
             const combinedHeightMap = createFractalMountains(distanceMap, PLATEAUS_AND_VALLEYS);
 
@@ -245,12 +258,7 @@ const App = () => {
             
             setFractalData({
                 combinedHeightMap, 
-                normalizedIterationsMap, 
-                minDistanceIterationMap,
-                finalZRealMap, 
-                finalZImagMap, 
-                finalDerivativeMagnitudeMap,
-                finalZRealAtFixedIterationMap,
+                normalizedIterationsMap,
                 colorMapImage
             });
 
