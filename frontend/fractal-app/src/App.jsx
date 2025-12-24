@@ -1,8 +1,8 @@
 import Frxp3D from './Frxp3D';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from "react-router-dom";
-import { PLATEAUS_AND_VALLEYS } from './sceneConfig';
-import { createFractalMountains } from './noiseUtils';
+import { PLATEAUS_AND_VALLEYS } from './configs/noiseConfig';
+import { createFractalMountains } from './utils/noiseUtils';
 
 /**
  * @typedef {Object} FractalParams

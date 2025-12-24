@@ -1,3 +1,4 @@
+// --- Noise Parameter Constants ---
 // A set of noise parameters for a "Plateaus and Valleys" terrain.
 export const PLATEAUS_AND_VALLEYS = {
     baseNoiseScale: 0.0005,
