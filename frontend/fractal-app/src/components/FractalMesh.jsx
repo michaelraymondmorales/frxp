@@ -1,6 +1,5 @@
 import { useMemo, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
-import { MESH_SETTINGS } from '../configs/sceneConfig';
 
 /**
  * Renders a 3D fractal terrain using Three.js planeGeometry.
@@ -11,7 +10,7 @@ import { MESH_SETTINGS } from '../configs/sceneConfig';
  * @param {Array<Array<number>>} props.fractalData.normalizedIterationsMap - 2D array of iteration counts.
  * @param {HTMLImageElement} props.fractalData.colorMapImage - The source image used for color lookup.
  */
-const FractalMesh = ({ fractalData }) => {
+const FractalMesh = ({ fractalData, heightScale, colorScale }) => {
     // 0. Unpack the fractalData into map constants
     const { combinedHeightMap, normalizedIterationsMap, colorMapImage } = fractalData;
     
@@ -45,7 +44,7 @@ const FractalMesh = ({ fractalData }) => {
                 const z = i - height / 2;
                 const rawY = combinedHeightMap[i][j];
                 // If height is not a finite number, set it to 0
-                let y = (Number.isFinite(rawY) ? rawY : 0) * MESH_SETTINGS.heightScale;
+                let y = (Number.isFinite(rawY) ? rawY : 0) * heightScale;
 
                 // Skirt Logic: Force edges to height 0 
                 if (i === 0 || 
@@ -61,7 +60,7 @@ const FractalMesh = ({ fractalData }) => {
 
                 // --- Coloring Logic ---
                 const iterValue = normalizedIterationsMap[i][j];
-                const iteration = Math.pow(iterValue, MESH_SETTINGS.colorScale);
+                const iteration = Math.pow(iterValue, colorScale);
                 const colorIndex = Math.min(Math.floor(iteration * 255), 255);    
                 // Look up the RGB values from the color map pixel data for the base color.
                 const r = colorMapPixels[colorIndex * 4] / 255;
@@ -81,7 +80,7 @@ const FractalMesh = ({ fractalData }) => {
             gridWidth: width, 
             gridHeight: height 
         };
-    }, [combinedHeightMap, normalizedIterationsMap, colorMapImage]);
+    }, [combinedHeightMap, normalizedIterationsMap, colorMapImage, heightScale, colorScale]);
 
     /**
      * Recalculates lighting normals whenever geometry positions change.
@@ -89,9 +88,14 @@ const FractalMesh = ({ fractalData }) => {
      */
     useLayoutEffect(() => {
         if (geometryRef.current) {
+            // 1. Tell Three.js the attributes have changed
+            geometryRef.current.attributes.position.needsUpdate = true;
+            geometryRef.current.attributes.color.needsUpdate = true;
+
+            // 2. Recalculate the lighting
             geometryRef.current.computeVertexNormals();
         }
-    }, [positions]);
+    }, [positions, colors]);
 
     return (
         <mesh>
