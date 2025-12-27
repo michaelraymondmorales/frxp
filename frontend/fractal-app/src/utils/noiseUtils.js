@@ -149,22 +149,22 @@ function getNoiseValue(noiseGen, x, y, { scale, octaves, persistence, lacunarity
 }
 
 /**
- * Creates a new heightmap by layering two different fractal noise maps on top of a base fractal skeleton.
- * @param {Array<Array<number>>} baseMap The 2D array of fractal data (distance map).
- * @param {Object} params An object containing the noise parameters.
- * @param {number} params.baseNoiseScale The overall scale of the base noise.
- * @param {number} params.baseNoiseOctaves The number of octaves for the base noise.
- * @param {number} params.baseNoisePersistence The amplitude decrease for the base noise.
- * @param {number} params.baseNoiseLacunarity The frequency increase for the base noise.
- * @param {number} params.detailNoiseScale The overall scale of the detail noise.
- * @param {number} params.detailNoiseOctaves The number of octaves for the detail noise.
- * @param {number} params.detailNoisePersistence The amplitude decrease for the detail noise.
- * @param {number} params.detailNoiseLacunarity The frequency increase for the detail noise.
- * @param {number} params.baseNoiseWeight The intensity of the base noise layering effect.
- * @param {number} params.detailNoiseWeight The intensity of the detail noise layering effect.
- * @returns {Array<Array<number>>} The new, combined heightmap.
+ * Generates a standalone noise map by layering base and detail simplex noise octaves.
+ * Optimized for GPU upload via a flat Float32Array.
+ * * @param {number} width - Map width (resolution).
+ * @param {number} height - Map height (resolution). 
+ * @param {Object} [params={}] - Optional noise configuration.
+ * @param {number} [params.baseNoiseScale=0.0005] - Frequency scale of the primary noise layer.
+ * @param {number} [params.baseNoiseOctaves=4] - Detail layers for primary noise.
+ * @param {number} [params.baseNoisePersistence=0.5] - Amplitude decay per octave (base).
+ * @param {number} [params.baseNoiseLacunarity=2.0] - Frequency growth per octave (base).
+ * @param {number} [params.detailNoiseScale=0.005] - Frequency scale of the secondary detail layer.
+ * @param {number} [params.detailNoiseOctaves=8] - Detail layers for secondary noise.
+ * @param {number} [params.detailNoisePersistence=0.6] - Amplitude decay per octave (detail).
+ * @param {number} [params.detailNoiseLacunarity=2.0] - Frequency growth per octave (detail).
+ * @returns {Float32Array} A flat array of combined noise values.
  */
-export const createFractalMountains = (baseMap, {
+export const generateNoiseMap = (width, height, {
     baseNoiseScale = 0.0005,
     baseNoiseOctaves = 4,
     baseNoisePersistence = 0.5,
@@ -173,63 +173,41 @@ export const createFractalMountains = (baseMap, {
     detailNoiseOctaves = 8,
     detailNoisePersistence = 0.6,
     detailNoiseLacunarity = 2.0,
-    baseNoiseWeight = 0.5,
-    detailNoiseWeight = 0.5
 } = {}) => {
-    if (!baseMap || baseMap.length === 0) {
-        return [];
-    }
-
-    const height = baseMap.length;
-    const width = baseMap[0].length;
+    const size = width * height;
+    const noiseData = new Float32Array(size);
     const baseNoiseGen = new SimplexNoise();
     const detailNoiseGen = new SimplexNoise(Date.now() + 1); // Use a different seed for a unique pattern.
-    const newMap = new Array(height).fill(0).map(() => new Array(width).fill(0));
 
-    // Calculate normalization factors for the base map.
-    let baseMapMin = Infinity;
-    let baseMapMax = -Infinity;
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            if (baseMap[y][x] < baseMapMin) {
-                baseMapMin = baseMap[y][x];
-            }
-            if (baseMap[y][x] > baseMapMax) {
-                baseMapMax = baseMap[y][x];
-            }
-        }
-    }
-    const baseMapRange = baseMapMax - baseMapMin;
+    let x = 0;
+    let y = 0;
 
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            // Normalize the base fractal value to a 0-1 range.
-            const normalizedFractal = (baseMap[y][x] - baseMapMin) / baseMapRange;
+    for (let i = 0; i < size; i++) {
+        // Generate the base and detail noise values.
+        const baseNoiseValue = getNoiseValue(baseNoiseGen, x, y, {
+            scale: baseNoiseScale,
+            octaves: baseNoiseOctaves,
+            persistence: baseNoisePersistence,
+            lacunarity: baseNoiseLacunarity
+        });
 
-            // Generate the base and detail noise values.
-            const baseNoiseValue = getNoiseValue(baseNoiseGen, x, y, {
-                scale: baseNoiseScale,
-                octaves: baseNoiseOctaves,
-                persistence: baseNoisePersistence,
-                lacunarity: baseNoiseLacunarity
-            });
+        const detailNoiseValue = getNoiseValue(detailNoiseGen, x, y, {
+            scale: detailNoiseScale,
+            octaves: detailNoiseOctaves,
+            persistence: detailNoisePersistence,
+            lacunarity: detailNoiseLacunarity
+        });
 
-            const detailNoiseValue = getNoiseValue(detailNoiseGen, x, y, {
-                scale: detailNoiseScale,
-                octaves: detailNoiseOctaves,
-                persistence: detailNoisePersistence,
-                lacunarity: detailNoiseLacunarity
-            });
-
-            // The key change: multiply noise by the normalized height.
-            // This ensures noise is only added to higher areas.
-            const adjustedBaseNoise = baseNoiseValue * baseNoiseWeight * normalizedFractal;
-            const adjustedDetailNoise = detailNoiseValue * detailNoiseWeight * normalizedFractal;
-
-            const layeredHeight = normalizedFractal + adjustedBaseNoise + adjustedDetailNoise;
-            newMap[y][x] = layeredHeight;
+        // Sum the raw values, weighting and masking are deferred to the shader.
+        noiseData[i] = baseNoiseValue + detailNoiseValue;
+        
+        // Manual increment is faster than Math.floor/modulo in long loops.
+        x++;
+        if (x >= width) {
+            x = 0;
+            y++;
         }
     }
 
-    return newMap;
+    return noiseData;
 };
